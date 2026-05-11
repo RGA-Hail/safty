@@ -246,8 +246,9 @@ select:focus,input:focus{border-color:var(--accent)}
   .modal-box{width:95%;padding:14px}
 
   /* Login */
-  #login-screen > div{width:92vw!important;padding:24px 20px!important}
-  #login-screen img{height:140px!important}
+  #login-screen > div{width:92vw!important;padding:20px 14px!important}
+  #login-logo-box{padding:8px!important;border-radius:8px!important;margin-bottom:12px!important}
+  #login-logo-img{height:auto!important;width:100%!important;max-height:none!important}
   #pin-input{font-size:20px}
 }
 
@@ -316,6 +317,11 @@ select:focus,input:focus{border-color:var(--accent)}
 }
 .custom-popup .leaflet-popup-content{margin:12px 14px;direction:rtl}
 .custom-popup .leaflet-popup-tip{background:#fff}
+/* زر الإغلاق أكبر على الموبايل */
+.custom-popup .leaflet-popup-close-button{
+  font-size:20px!important;width:28px!important;height:28px!important;
+  line-height:26px!important;top:4px!important;left:4px!important;
+}
 
 /* ── Cluster icons ── */
 .cluster-icon{
@@ -345,12 +351,12 @@ select:focus,input:focus{border-color:var(--accent)}
 ">
   <div style="
     background:#1c2333;border:1px solid #30363d;border-radius:16px;
-    padding:40px 48px;width:460px;text-align:center;
+    padding:clamp(20px,5vw,40px) clamp(16px,5vw,48px);width:min(460px,92vw);text-align:center;
     box-shadow:0 20px 60px rgba(0,0,0,.5);
   ">
     <div style="margin-bottom:20px">
-      <div style="background:rgba(255,255,255,.95);border-radius:12px;padding:14px 24px;display:block;margin-bottom:16px">
-        <img src="logo.svg" style="height:240px;width:auto;display:block;margin:0 auto">
+      <div id="login-logo-box" style="background:rgba(255,255,255,.95);border-radius:12px;padding:14px 24px;display:block;margin-bottom:16px">
+        <img src="logo.svg" id="login-logo-img" style="height:240px;width:auto;display:block;margin:0 auto">
       </div>
       <div style="color:#e6edf3;font-size:16px;font-weight:700;margin-bottom:4px">لوحة حوادث السلامة</div>
       <div style="color:#8b949e;font-size:12px">الهيئة العامة للطرق — منطقة حائل</div>
@@ -1293,7 +1299,12 @@ let activeLayer = null;
 let currentLayerKey = 'google';
 
 function initMap() {
-  mapObj = L.map('map', { center:[27.52,41.69], zoom:7, zoomControl:true, attributionControl:false });
+  mapObj = L.map('map', {
+    center: [27.52, 41.69], zoom: 7,
+    zoomControl: true, attributionControl: false,
+    tap: false,          // يمنع تعارض أحداث اللمس على iOS
+    closePopupOnClick: false  // لا يُغلق الـ popup عند لمس الخريطة
+  });
   L.control.attribution({ position:'bottomleft', prefix:false }).addTo(mapObj);
   applyTileLayer('google');
   // markersLayer will be created in updateMapMarkers
@@ -1420,7 +1431,11 @@ function updateMapMarkers() {
           ${inc.cause.slice(0,120)}${inc.cause.length>120?'…':''}
         </div>
       </div>
-    `, { maxWidth:290, className:'custom-popup' });
+    `, { maxWidth:290, className:'custom-popup', autoPan:true });
+
+    // منع وصول حدث اللمس/النقر للخريطة (يمنع إغلاق الـ popup فوراً)
+    m.on('click', e => L.DomEvent.stopPropagation(e));
+    m.on('touchend', e => L.DomEvent.stopPropagation(e));
 
     markersLayer.addLayer(m);
   });
