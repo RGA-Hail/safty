@@ -275,8 +275,27 @@ select:focus,input:focus{border-color:var(--accent)}
 }
 #mob-filters.show,#mob-charts.show{display:block}
 @media(min-width:601px){
-  #mobile-nav,#mob-filters,#mob-charts{display:none!important}
+  #mobile-nav,#mob-filters,#mob-charts,#mob-incident-sheet{display:none!important}
 }
+
+/* ── Mobile incident bottom sheet ── */
+#mob-incident-sheet{
+  display:none;
+  position:fixed;bottom:56px;left:0;right:0;z-index:400;
+  background:var(--card);border-top:2px solid var(--accent);
+  border-radius:16px 16px 0 0;
+  max-height:65vh;overflow-y:auto;
+  box-shadow:0 -4px 24px rgba(0,0,0,.5);
+  animation:slideUp .25s ease;
+}
+#mob-incident-sheet.show{display:block}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#mob-sheet-handle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px 6px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--card);z-index:1;
+}
+#mob-sheet-body{padding:12px 16px 20px;direction:rtl}
 
 /* ── MODAL ── */
 #detail-modal{
@@ -714,6 +733,15 @@ document.getElementById('pin-input').focus();
     <span class="mni">⚙️</span>الإدارة
   </button>
 </nav>
+
+<!-- Mobile incident bottom sheet -->
+<div id="mob-incident-sheet">
+  <div id="mob-sheet-handle">
+    <span style="font-size:13px;font-weight:700;color:var(--text)">🚨 تفاصيل الحادث</span>
+    <button onclick="closeMobSheet()" style="background:none;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px">✕</button>
+  </div>
+  <div id="mob-sheet-body"></div>
+</div>
 
 <!-- لوحة الفلاتر للموبايل -->
 <div id="mob-filters">
@@ -1433,9 +1461,12 @@ function updateMapMarkers() {
       </div>
     `, { maxWidth:290, className:'custom-popup', autoPan:true });
 
-    // منع وصول حدث اللمس/النقر للخريطة (يمنع إغلاق الـ popup فوراً)
-    m.on('click', e => L.DomEvent.stopPropagation(e));
-    m.on('touchend', e => L.DomEvent.stopPropagation(e));
+    m.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      if (window.innerWidth <= 600) {
+        showMobSheet(inc, color);  // bottom sheet على الموبايل
+      }
+    });
 
     markersLayer.addLayer(m);
   });
@@ -1443,6 +1474,35 @@ function updateMapMarkers() {
   mapObj.addLayer(markersLayer);
   const deathCount = FILT.filter(d => d.deaths > 0).length;
   document.getElementById('map-count').textContent = `يعرض ${deathCount.toLocaleString('ar')} حادث وفاة من أصل ${FILT.length.toLocaleString('ar')}`;
+}
+
+function showMobSheet(inc, color) {
+  const dn = isDayTime(inc.hour, inc.day_night) ? '☀️ نهار' : '🌙 ليل';
+  document.getElementById('mob-sheet-body').innerHTML = `
+    <div style="border-bottom:2px solid ${color};padding-bottom:8px;margin-bottom:10px">
+      <span style="color:${color};font-weight:700;font-size:12px">● ${inc.deaths>0?'وفاة':'حادث مروري'}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2">
+      <tr><td style="color:var(--muted);width:90px">📅 التاريخ</td><td style="color:var(--text);font-weight:500">${inc.date} ${inc.time||''}</td></tr>
+      <tr><td style="color:var(--muted)">🛣️ الطريق</td><td style="color:var(--text);font-weight:500">${inc.road_name}</td></tr>
+      <tr><td style="color:var(--muted)">📋 العقد</td><td style="color:var(--text)">${inc.contract}</td></tr>
+      <tr><td style="color:var(--muted)">📍 الكيلو</td><td style="color:var(--text)" dir="ltr">${inc.km_mark||'—'}</td></tr>
+      <tr><td style="color:var(--muted)">🚗 المركبة</td><td style="color:var(--text)">${inc.vehicle_type||'—'}</td></tr>
+      <tr><td style="color:var(--muted)">⛅ الطقس</td><td style="color:var(--text)">${inc.weather||'—'}</td></tr>
+      <tr><td style="color:var(--muted)">${dn}</td><td style="color:var(--text)">${inc.month_name||'—'} — ${inc.hour>=0?inc.hour+':00':'—'}</td></tr>
+    </table>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <span style="background:${inc.deaths>0?'rgba(248,81,73,.2)':'rgba(0,0,0,.1)'};color:${inc.deaths>0?'#f85149':'var(--muted)'};padding:4px 12px;border-radius:10px;font-weight:700;font-size:12px">💀 ${inc.deaths}</span>
+      <span style="background:${inc.injuries>0?'rgba(240,136,62,.2)':'rgba(0,0,0,.1)'};color:${inc.injuries>0?'#f0883e':'var(--muted)'};padding:4px 12px;border-radius:10px;font-weight:700;font-size:12px">🤕 ${inc.injuries}</span>
+      ${inc.cause_category?`<span style="background:rgba(188,140,255,.15);color:var(--purple);padding:4px 10px;border-radius:10px;font-size:11px">${inc.cause_category}</span>`:''}
+    </div>
+    ${inc.cause?`<div style="margin-top:10px;color:var(--muted);font-size:11px;line-height:1.6;border-top:1px solid var(--border);padding-top:8px">${inc.cause.slice(0,150)}${inc.cause.length>150?'…':''}</div>`:''}
+  `;
+  document.getElementById('mob-incident-sheet').classList.add('show');
+}
+
+function closeMobSheet() {
+  document.getElementById('mob-incident-sheet').classList.remove('show');
 }
 
 function mapFit() {
