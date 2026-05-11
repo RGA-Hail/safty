@@ -195,20 +195,86 @@ select:focus,input:focus{border-color:var(--accent)}
 .dn-night{background:rgba(88,166,255,.12);color:var(--accent)}
 
 /* ── MOBILE ── */
+/* ── TABLET ── */
 @media(max-width:900px){
   #left-panel,#right-panel{display:none}
   #app{overflow:auto;height:auto}
   html,body{overflow:auto}
   #main-area{flex-direction:column}
-  #map{height:300px}
-  #kpi-row{flex-wrap:nowrap}
-  .kpi{min-width:110px}
-  #data-drawer.open{height:200px}
+  #map{height:55vw;min-height:280px}
+  #kpi-row{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+  .kpi{min-width:120px;flex-shrink:0}
+  #data-drawer.open{height:220px}
   #map-overlay{top:6px;right:6px}
+  #layer-switcher{left:6px}
+  .lbtn{font-size:10px;padding:5px 8px}
 }
+
+/* ── MOBILE ── */
 @media(max-width:600px){
-  .kpi-val{font-size:20px}
-  .kpi{min-width:90px;padding:8px 10px}
+  /* Topbar */
+  #topbar{height:56px;padding:0 10px}
+  #app{padding-top:56px;padding-bottom:56px}
+  .tb-title{font-size:13px}
+  .tb-sub{display:none}
+  .tb-logo{height:44px;padding:2px 6px;border-radius:6px}
+  .tb-logo img{height:38px}
+  .tbtn{padding:4px 8px;font-size:11px}
+  .badge-live{display:none}
+
+  /* KPIs — 2 صفوف قابلة للتمرير */
+  #kpi-row{flex-wrap:wrap;overflow-x:visible}
+  .kpi{min-width:calc(50% - 1px);flex:0 0 calc(50% - 1px);border-left:none;
+       border-top:1px solid var(--border);padding:8px 12px}
+  .kpi:nth-child(odd){border-left:none}
+  .kpi:nth-child(even){border-right:1px solid var(--border)}
+  .kpi-val{font-size:22px}
+  .kpi-lbl{font-size:10px}
+  .kpi-bar{display:none}
+
+  /* Map */
+  #map{height:60vw;min-height:240px}
+  #map-bottom{flex-direction:column;gap:4px;align-items:flex-start;padding:6px 10px}
+  .map-btns{gap:4px}
+  .tbtn{font-size:10px}
+
+  /* Mobile bottom nav */
+  #mobile-nav{display:flex!important}
+  #data-drawer{display:none}
+
+  /* Modal */
+  .modal-box{width:95%;padding:14px}
+
+  /* Login */
+  #login-screen > div{width:92vw!important;padding:24px 20px!important}
+  #login-screen img{height:140px!important}
+  #pin-input{font-size:20px}
+}
+
+/* ── MOBILE BOTTOM NAV ── */
+#mobile-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:var(--surface);border-top:1px solid var(--border);
+  height:56px;
+}
+.mnav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;border:none;background:none;color:var(--muted);font-size:9px;
+  font-family:inherit;cursor:pointer;padding:6px 0;transition:.15s;
+}
+.mnav-btn .mni{font-size:20px;line-height:1}
+.mnav-btn.active{color:var(--accent)}
+.mnav-btn.active .mni{filter:drop-shadow(0 0 4px var(--accent))}
+
+/* mobile panels */
+#mob-filters,#mob-charts{
+  display:none;position:fixed;inset:0;top:56px;bottom:56px;
+  z-index:250;background:var(--surface);overflow-y:auto;
+}
+#mob-filters.show,#mob-charts.show{display:block}
+@media(min-width:601px){
+  #mobile-nav,#mob-filters,#mob-charts{display:none!important}
 }
 
 /* ── MODAL ── */
@@ -623,6 +689,99 @@ document.getElementById('pin-input').focus();
   </div>
 
 </div><!-- /app -->
+
+<!-- ── MOBILE BOTTOM NAV ── -->
+<nav id="mobile-nav">
+  <button class="mnav-btn active" id="mnav-map" onclick="mobTab('map')">
+    <span class="mni">🗺️</span>الخريطة
+  </button>
+  <button class="mnav-btn" id="mnav-filters" onclick="mobTab('filters')">
+    <span class="mni">🔽</span>الفلاتر
+  </button>
+  <button class="mnav-btn" id="mnav-charts" onclick="mobTab('charts')">
+    <span class="mni">📊</span>المخططات
+  </button>
+  <button class="mnav-btn" id="mnav-table" onclick="mobTab('table')">
+    <span class="mni">📋</span>الجدول
+  </button>
+  <button class="mnav-btn" id="mnav-admin" onclick="location.href='admin.html'">
+    <span class="mni">⚙️</span>الإدارة
+  </button>
+</nav>
+
+<!-- لوحة الفلاتر للموبايل -->
+<div id="mob-filters">
+  <div style="padding:12px 16px 80px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;padding-top:4px">🔽 الفلاتر</div>
+
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">السنة</label>
+      <div class="chip-wrap" id="mob-year-chips"></div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">الشهر</label>
+      <div class="chip-wrap" id="mob-month-chips"></div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">رقم العقد</label>
+      <div class="chip-wrap" id="mob-contract-chips"></div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">حالة الطقس</label>
+      <div class="chip-wrap" id="mob-weather-chips"></div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">ليل / نهار</label>
+      <div class="chip-wrap">
+        <div class="chip" onclick="mobDayNight(this,'day')">☀️ نهار</div>
+        <div class="chip" onclick="mobDayNight(this,'night')">🌙 ليل</div>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">الطريق</label>
+      <select id="mob-road" onchange="flt.road=this.value;applyFilters()" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:7px;font-size:12px;font-family:inherit">
+        <option value="">— جميع الطرق —</option>
+      </select>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">سبب الحادث</label>
+      <div class="chip-wrap" id="mob-cause-chips"></div>
+    </div>
+    <button onclick="resetFilters();syncMobFilters()" style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);padding:8px;border-radius:7px;cursor:pointer;font-size:13px;font-family:inherit;margin-top:4px">🔄 إعادة تعيين</button>
+  </div>
+</div>
+
+<!-- لوحة المخططات للموبايل -->
+<div id="mob-charts">
+  <div style="padding:12px 16px 80px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;padding-top:4px">📊 المخططات</div>
+
+    <div class="mini-chart-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">الحوادث شهرياً</div>
+      <canvas id="mob-mc-monthly" style="max-height:160px"></canvas>
+    </div>
+    <div class="mini-chart-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">الوفيات / الإصابات</div>
+      <canvas id="mob-mc-casualties" style="max-height:140px"></canvas>
+    </div>
+    <div class="mini-chart-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">الساعات الخطرة</div>
+      <canvas id="mob-mc-hourly" style="max-height:120px"></canvas>
+    </div>
+    <div class="mini-chart-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">حالة الطقس</div>
+      <canvas id="mob-mc-weather" style="max-height:180px"></canvas>
+    </div>
+    <div class="mini-chart-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">أسباب الحوادث</div>
+      <canvas id="mob-mc-causes" style="max-height:160px"></canvas>
+    </div>
+    <div class="mini-chart-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">أيام الأسبوع</div>
+      <canvas id="mob-mc-days" style="max-height:140px"></canvas>
+    </div>
+  </div>
+</div>
 
 <!-- INCIDENT DETAIL MODAL -->
 <div id="detail-modal">
@@ -1473,6 +1632,206 @@ document.getElementById('detail-modal').addEventListener('click', e => {
 });
 
 init();
+
+// ═══════════════════════════════════════════════
+// Mobile Navigation
+// ═══════════════════════════════════════════════
+let mobCurrent = 'map';
+
+function mobTab(tab) {
+  mobCurrent = tab;
+  document.querySelectorAll('.mnav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mnav-' + tab)?.classList.add('active');
+
+  document.getElementById('mob-filters').classList.remove('show');
+  document.getElementById('mob-charts').classList.remove('show');
+
+  if (tab === 'filters') {
+    document.getElementById('mob-filters').classList.add('show');
+  } else if (tab === 'charts') {
+    document.getElementById('mob-charts').classList.add('show');
+    renderMobCharts();
+  } else if (tab === 'table') {
+    document.getElementById('mob-filters').classList.remove('show');
+    toggleDrawer();
+  } else if (tab === 'map') {
+    setTimeout(() => { if (mapObj) { mapObj.invalidateSize(); mapFit(); } }, 100);
+  }
+}
+
+function buildMobFilters() {
+  if (window.innerWidth > 600) return;
+
+  // Year chips
+  const yc = document.getElementById('mob-year-chips');
+  if (yc && !yc.children.length) {
+    [2023,2024,2025].forEach(y => {
+      const c = document.createElement('div');
+      c.className = 'chip on';
+      c.textContent = y;
+      c.onclick = () => toggleChip(c, y, flt.years);
+      yc.appendChild(c);
+    });
+  }
+
+  // Month chips
+  const mc = document.getElementById('mob-month-chips');
+  if (mc && !mc.children.length) {
+    MONTHS.forEach(m => {
+      if (!ALL.some(d => d.month_name === m)) return;
+      const c = document.createElement('div');
+      c.className = 'chip';
+      c.textContent = m.slice(0,4);
+      c.title = m;
+      c.onclick = () => toggleChip(c, m, flt.months);
+      mc.appendChild(c);
+    });
+  }
+
+  // Contract chips
+  const cc = document.getElementById('mob-contract-chips');
+  if (cc && !cc.children.length) {
+    [...new Set(ALL.map(d=>d.contract).filter(Boolean))].sort().forEach(v => {
+      const c = document.createElement('div');
+      c.className = 'chip';
+      c.textContent = 'عقد '+v;
+      c.onclick = () => toggleChip(c, v, flt.contracts);
+      cc.appendChild(c);
+    });
+  }
+
+  // Weather chips
+  const wc = document.getElementById('mob-weather-chips');
+  if (wc && !wc.children.length) {
+    [...new Set(ALL.map(d=>d.weather).filter(Boolean))].sort().forEach(v => {
+      const c = document.createElement('div');
+      c.className = 'chip';
+      c.textContent = v;
+      c.onclick = () => toggleChip(c, v, flt.weathers);
+      wc.appendChild(c);
+    });
+  }
+
+  // Cause chips
+  const causeEl = document.getElementById('mob-cause-chips');
+  if (causeEl && !causeEl.children.length) {
+    const CAUSE_ICONS = {'عدم الانتباه':'😴','انحراف المركبة':'🔄','انفجار الإطار':'💥','صدم حيوان سائب':'🐪','عطل فني':'🔧','تجاوز خاطئ':'↩️','النعاس':'💤'};
+    [...new Set(ALL.map(d=>d.cause_category).filter(Boolean))].sort().forEach(cat => {
+      const c = document.createElement('div');
+      c.className = 'chip';
+      c.textContent = (CAUSE_ICONS[cat]||'') + ' ' + cat;
+      c.onclick = () => toggleChip(c, cat, flt.causes);
+      causeEl.appendChild(c);
+    });
+  }
+
+  // Road select
+  const rs = document.getElementById('mob-road');
+  if (rs && rs.options.length < 2) {
+    [...new Set(ALL.map(d=>d.road_name).filter(Boolean))].sort().forEach(r => {
+      const o = document.createElement('option');
+      o.value = r; o.textContent = r;
+      rs.appendChild(o);
+    });
+  }
+}
+
+function mobDayNight(el, val) {
+  toggleChip(el, val, flt.daynight);
+}
+
+function syncMobFilters() {
+  document.querySelectorAll('#mob-year-chips .chip').forEach(c => {
+    c.classList.toggle('on', flt.years.includes(parseInt(c.textContent)));
+  });
+  document.querySelectorAll('#mob-month-chips .chip, #mob-contract-chips .chip, #mob-weather-chips .chip, #mob-cause-chips .chip').forEach(c => c.classList.remove('on'));
+  document.getElementById('mob-road').value = '';
+}
+
+// Mobile charts (separate canvas IDs)
+const MOB_CHART_MAP = {
+  'mob-mc-monthly':   'mc-monthly',
+  'mob-mc-casualties':'mc-casualties',
+  'mob-mc-hourly':    'mc-hourly',
+  'mob-mc-weather':   'mc-weather',
+  'mob-mc-causes':    'mc-causes',
+  'mob-mc-days':      'mc-days',
+};
+let mobCharts = {};
+
+function renderMobCharts() {
+  if (window.innerWidth > 600) return;
+  const gridC='rgba(48,54,61,.5)', tickC='#8b949e';
+
+  // Reuse same data calculations as desktop charts
+  const mData={}; MONTHS.forEach(m=>mData[m]=0);
+  FILT.forEach(d=>{ if(d.month_name) mData[d.month_name]++; });
+  mkMobChart('mob-mc-monthly','bar',MONTHS.map(m=>m.slice(0,2)),[{
+    data:MONTHS.map(m=>mData[m]),
+    backgroundColor:PALETTE.map(c=>c+'99'), borderColor:PALETTE, borderWidth:1, borderRadius:2
+  }]);
+
+  const mD={},mI={}; MONTHS.forEach(m=>{mD[m]=0;mI[m]=0;});
+  FILT.forEach(d=>{ if(d.month_name){mD[d.month_name]+=d.deaths;mI[d.month_name]+=d.injuries;} });
+  mkMobChart('mob-mc-casualties','line',MONTHS.map(m=>m.slice(0,2)),[
+    {label:'وفيات',data:MONTHS.map(m=>mD[m]),borderColor:'#f85149',backgroundColor:'rgba(248,81,73,.1)',tension:.4,fill:true,pointRadius:2},
+    {label:'إصابات',data:MONTHS.map(m=>mI[m]),borderColor:'#f0883e',backgroundColor:'rgba(240,136,62,.1)',tension:.4,fill:true,pointRadius:2}
+  ],{plugins:{legend:{display:true,labels:{color:'#8b949e',boxWidth:8,font:{size:9}}}}});
+
+  const hData=new Array(24).fill(0);
+  FILT.forEach(d=>{if(d.hour>=0)hData[d.hour]++;});
+  mkMobChart('mob-mc-hourly','bar',Array.from({length:24},(_,i)=>`${i}`),[{
+    data:hData,
+    backgroundColor:hData.map(v=>v>12?'#f8514999':'#58a6ff55'),
+    borderColor:hData.map(v=>v>12?'#f85149':'#58a6ff'),borderWidth:1,borderRadius:1
+  }]);
+
+  const wC={}; FILT.forEach(d=>{if(d.weather)wC[d.weather]=(wC[d.weather]||0)+1;});
+  const wE=Object.entries(wC).sort((a,b)=>b[1]-a[1]);
+  mkMobChart('mob-mc-weather','doughnut',wE.map(e=>e[0]),[{
+    data:wE.map(e=>e[1]),
+    backgroundColor:PALETTE.map(c=>c+'cc'),borderColor:'#1c2333',borderWidth:2
+  }],{plugins:{legend:{display:true,position:'bottom',labels:{color:'#8b949e',boxWidth:7,font:{size:9},padding:5}}}});
+
+  const causeData={};
+  FILT.forEach(d=>{if(d.cause_category)causeData[d.cause_category]=(causeData[d.cause_category]||0)+1;});
+  const cE=Object.entries(causeData).sort((a,b)=>b[1]-a[1]);
+  mkMobChart('mob-mc-causes','bar',cE.map(e=>e[0]),[{
+    data:cE.map(e=>e[1]),
+    backgroundColor:PALETTE.map(c=>c+'99'),borderColor:PALETTE,borderWidth:1,borderRadius:2
+  }],{indexAxis:'y'});
+
+  const dData={}; DAYS7.forEach(d=>dData[d]=0);
+  FILT.forEach(d=>{if(d.week_day)dData[d.week_day]=(dData[d.week_day]||0)+1;});
+  mkMobChart('mob-mc-days','bar',DAYS7.map(d=>d.slice(0,2)),[{
+    data:DAYS7.map(d=>dData[d]),
+    backgroundColor:DAYS7.map((_,i)=>(i===5||i===6)?'#f8514999':'#58a6ff77'),
+    borderColor:DAYS7.map((_,i)=>(i===5||i===6)?'#f85149':'#58a6ff'),borderWidth:1,borderRadius:2
+  }]);
+}
+
+function mkMobChart(id,type,labels,datasets,extraOpts={}) {
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  if(mobCharts[id]) mobCharts[id].destroy();
+  const gridC='rgba(48,54,61,.5)',tickC='#8b949e';
+  const opts={responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{display:false},tooltip:{rtl:true},...(extraOpts.plugins||{})},
+    ...extraOpts};
+  if(type!=='pie'&&type!=='doughnut') {
+    opts.scales={
+      x:{ticks:{color:tickC,font:{size:8}},grid:{color:gridC}},
+      y:{ticks:{color:tickC,font:{size:8}},grid:{color:gridC}},
+      ...(extraOpts.scales||{})
+    };
+  }
+  mobCharts[id]=new Chart(ctx,{type,data:{labels,datasets},options:opts});
+}
+
+// بناء فلاتر الموبايل بعد تحميل البيانات
+const _origApply = applyFilters;
+// hook بعد البناء الأول
+setTimeout(buildMobFilters, 1500);
 </script>
 </body>
 </html>
