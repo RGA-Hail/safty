@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>لوحة تحكم حوادث السلامة 2025</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --card:#1c2333; --border:#30363d;
+  --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#f0883e;
+  --purple:#bc8cff; --cyan:#39d353; --yellow:#d29922;
+  --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);direction:rtl;overflow:hidden}
+
+/* ── TOPBAR ── */
+#topbar{
+  height:90px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;position:fixed;top:0;left:0;right:0;z-index:200;
+}
+.tb-brand{display:flex;align-items:center;gap:10px}
+.tb-logo{height:80px;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.95);border-radius:8px;padding:3px 8px;}
+.tb-logo img{height:200px;width:auto;object-fit:contain;}
+.tb-title{font-size:15px;font-weight:700;color:var(--text)}
+.tb-sub{font-size:11px;color:var(--muted)}
+.tb-right{display:flex;align-items:center;gap:8px}
+.badge-live{background:rgba(63,185,80,.12);color:var(--green);border:1px solid var(--green);padding:3px 9px;border-radius:20px;font-size:11px;display:flex;align-items:center;gap:5px}
+.dot-pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tbtn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:.2s}
+.tbtn:hover{border-color:var(--accent);color:var(--accent)}
+.tbtn-primary{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
+.tbtn-primary:hover{background:#79bbff;color:#000}
+
+/* ── APP SHELL ── */
+#app{display:flex;flex-direction:column;height:100vh;padding-top:90px}
+
+/* ── KPI ROW ── */
+#kpi-row{
+  display:flex;gap:0;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-shrink:0;overflow-x:auto;
+}
+.kpi{
+  flex:1;min-width:130px;padding:10px 14px;
+  border-left:1px solid var(--border);cursor:pointer;transition:.15s;
+  position:relative;
+}
+.kpi:first-child{border-left:none}
+.kpi:hover{background:rgba(88,166,255,.05)}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.kpi-icon{font-size:18px}
+.kpi-trend{font-size:10px}
+.kpi-val{font-size:26px;font-weight:800;line-height:1}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.kpi-bar{height:2px;border-radius:1px;margin-top:8px;background:var(--border)}
+.kpi-bar-fill{height:100%;border-radius:1px;transition:width .5s}
+.kpi.c-blue .kpi-val{color:var(--accent)}
+.kpi.c-red .kpi-val{color:var(--red)}
+.kpi.c-orange .kpi-val{color:var(--orange)}
+.kpi.c-green .kpi-val{color:var(--green)}
+.kpi.c-purple .kpi-val{color:var(--purple)}
+.kpi.c-cyan .kpi-val{color:var(--cyan)}
+.kpi.c-blue .kpi-bar-fill{background:var(--accent)}
+.kpi.c-red .kpi-bar-fill{background:var(--red)}
+.kpi.c-orange .kpi-bar-fill{background:var(--orange)}
+.kpi.c-green .kpi-bar-fill{background:var(--green)}
+.kpi.c-purple .kpi-bar-fill{background:var(--purple)}
+.kpi.c-cyan .kpi-bar-fill{background:var(--cyan)}
+
+/* ── MAIN 3-COL LAYOUT ── */
+#main-area{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* ── LEFT PANEL ── */
+#left-panel{
+  width:300px;min-width:300px;
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-header{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--muted);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border)}
+.ptab{flex:1;padding:8px;text-align:center;font-size:11px;color:var(--muted);cursor:pointer;border:none;background:none;font-family:inherit;border-bottom:2px solid transparent;transition:.15s}
+.ptab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Filters */
+#filter-pane{padding:10px;overflow-y:auto;flex:1}
+.fg{margin-bottom:12px}
+.fg label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px}
+select,input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit;outline:none;direction:rtl}
+select:focus,input:focus{border-color:var(--accent)}
+.chip-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.chip{padding:3px 8px;border-radius:12px;font-size:10px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--card);transition:.15s}
+.chip.on{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.chip:hover:not(.on){border-color:var(--accent);color:var(--accent)}
+.reset{width:100%;margin-top:8px;background:transparent;border:1px solid var(--red);color:var(--red);padding:6px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit}
+
+/* Road summary table */
+#road-pane{overflow-y:auto;flex:1}
+#road-pane table{width:100%;border-collapse:collapse;font-size:11px}
+#road-pane thead th{background:var(--card);padding:7px 8px;color:var(--muted);text-align:right;position:sticky;top:0;border-bottom:1px solid var(--border);white-space:nowrap}
+#road-pane tbody tr{border-bottom:1px solid rgba(48,54,61,.5);cursor:pointer;transition:.12s}
+#road-pane tbody tr:hover{background:rgba(88,166,255,.06)}
+#road-pane tbody td{padding:6px 8px;vertical-align:middle}
+.r-name{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.mini-pill{display:inline-block;padding:1px 5px;border-radius:8px;font-size:10px;font-weight:600}
+.mp-red{background:rgba(248,81,73,.15);color:var(--red)}
+.mp-ora{background:rgba(240,136,62,.15);color:var(--orange)}
+.mp-blue{background:rgba(88,166,255,.15);color:var(--accent)}
+
+/* ── CENTER: MAP AREA ── */
+#center-panel{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+#map{flex:1;width:100%;z-index:1}
+
+/* Layer switcher */
+#layer-switcher{
+  position:absolute;top:10px;left:10px;z-index:500;
+  display:flex;gap:4px;flex-direction:column;
+}
+.lbtn{
+  background:rgba(13,17,23,.88);border:1px solid rgba(48,54,61,.9);
+  color:var(--muted);padding:6px 10px;border-radius:7px;cursor:pointer;
+  font-size:11px;font-family:inherit;transition:.2s;white-space:nowrap;
+  backdrop-filter:blur(6px);text-align:right;
+}
+.lbtn:hover{border-color:var(--accent);color:var(--accent)}
+.lbtn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+
+#map-overlay{
+  position:absolute;top:10px;right:10px;z-index:10;
+  display:flex;flex-direction:column;gap:6px;
+}
+.map-pill{
+  background:rgba(22,27,34,.92);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text);
+  backdrop-filter:blur(4px);
+}
+.map-legend{display:flex;gap:10px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+#map-bottom{
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:6px 12px;display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;color:var(--muted);
+}
+.map-btns{display:flex;gap:6px}
+
+/* ── RIGHT PANEL ── */
+#right-panel{
+  width:280px;min-width:280px;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#charts-scroll{flex:1;overflow-y:auto;padding:10px}
+.mini-chart-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px}
+.mc-title{font-size:11px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.mc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.mc-canvas{max-height:140px}
+
+/* ── BOTTOM DATA TABLE DRAWER ── */
+#data-drawer{
+  background:var(--surface);border-top:1px solid var(--border);
+  transition:height .3s;overflow:hidden;flex-shrink:0;
+}
+#data-drawer.open{height:220px}
+#data-drawer.closed{height:34px}
+#drawer-handle{
+  height:34px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;cursor:pointer;border-bottom:1px solid var(--border);
+}
+.dh-title{font-size:12px;color:var(--muted);font-weight:600}
+.dh-toggle{font-size:11px;color:var(--accent);cursor:pointer}
+#table-wrap{height:186px;overflow-y:auto}
+#incidents-tbl{width:100%;border-collapse:collapse;font-size:11px}
+#incidents-tbl thead th{background:var(--card);padding:6px 10px;color:var(--muted);text-align:right;position:sticky;top:0;border-bottom:1px solid var(--border);white-space:nowrap}
+#incidents-tbl tbody tr{border-bottom:1px solid rgba(48,54,61,.5);transition:.12s}
+#incidents-tbl tbody tr:hover{background:rgba(88,166,255,.05)}
+#incidents-tbl tbody td{padding:5px 10px;white-space:nowrap}
+.bpill{padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700}
+.bp-red{background:rgba(248,81,73,.2);color:var(--red)}
+.bp-ora{background:rgba(240,136,62,.2);color:var(--orange)}
+.bp-muted{color:var(--muted)}
+.day-night{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:8px;font-size:10px}
+.dn-day{background:rgba(240,136,62,.12);color:var(--orange)}
+.dn-night{background:rgba(88,166,255,.12);color:var(--accent)}
+
+/* ── MOBILE ── */
+@media(max-width:900px){
+  #left-panel,#right-panel{display:none}
+  #app{overflow:auto;height:auto}
+  html,body{overflow:auto}
+  #main-area{flex-direction:column}
+  #map{height:300px}
+  #kpi-row{flex-wrap:nowrap}
+  .kpi{min-width:110px}
+  #data-drawer.open{height:200px}
+  #map-overlay{top:6px;right:6px}
+}
+@media(max-width:600px){
+  .kpi-val{font-size:20px}
+  .kpi{min-width:90px;padding:8px 10px}
+}
+
+/* ── MODAL ── */
+#detail-modal{
+  display:none;position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}
+#detail-modal.open{display:flex}
+.modal-box{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:20px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto;
+}
+.modal-close{float:left;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:14px}
+.mrow{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;font-size:13px}
+.mrow-lbl{color:var(--muted);min-width:100px;flex-shrink:0}
+.mrow-val{color:var(--text);font-weight:500}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px}
+
+/* notify */
+#notify{position:fixed;bottom:16px;left:16px;padding:10px 18px;border-radius:8px;font-size:13px;z-index:999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+
+/* KPI active state */
+.kpi{cursor:pointer}
+.kpi-active{outline:2px solid var(--accent);outline-offset:-2px;background:rgba(88,166,255,.08)!important}
+.kpi.c-red.kpi-active{outline-color:var(--red);background:rgba(248,81,73,.1)!important}
+.kpi.c-orange.kpi-active{outline-color:var(--orange);background:rgba(240,136,62,.1)!important}
+.kpi.c-green.kpi-active{outline-color:var(--green);background:rgba(63,185,80,.1)!important}
+.kpi.c-purple.kpi-active{outline-color:var(--purple);background:rgba(188,140,255,.1)!important}
+
+/* Leaflet popup override */
+.custom-popup .leaflet-popup-content-wrapper{
+  border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.35);padding:0;overflow:hidden;
+}
+.custom-popup .leaflet-popup-content{margin:12px 14px;direction:rtl}
+.custom-popup .leaflet-popup-tip{background:#fff}
+
+/* ── Cluster icons ── */
+.cluster-icon{
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;font-weight:800;color:#fff;
+  border:3px solid rgba(255,255,255,.7);
+  box-shadow:0 2px 10px rgba(0,0,0,.5);
+  font-family:'Segoe UI',Tahoma,Arial,sans-serif;
+  transition:transform .15s;
+}
+.cluster-icon:hover{transform:scale(1.1)}
+.cluster-red   { background:radial-gradient(circle at 35% 35%, #ff6b6b, #c0392b); }
+.cluster-orange{ background:radial-gradient(circle at 35% 35%, #ffb347, #d35400); }
+.cluster-green { background:radial-gradient(circle at 35% 35%, #6bcb77, #27ae60); }
+/* hide default markercluster styles */
+.leaflet-cluster-anim .leaflet-marker-icon,
+.leaflet-cluster-anim .leaflet-marker-shadow{transition:transform .3s,opacity .3s}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen" style="
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#0d1117 0%,#161b22 100%);
+  display:flex;align-items:center;justify-content:center;
+">
+  <div style="
+    background:#1c2333;border:1px solid #30363d;border-radius:16px;
+    padding:40px 48px;width:460px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  ">
+    <div style="margin-bottom:20px">
+      <div style="background:rgba(255,255,255,.95);border-radius:12px;padding:14px 24px;display:block;margin-bottom:16px">
+        <img src="logo.svg" style="height:240px;width:auto;display:block;margin:0 auto">
+      </div>
+      <div style="color:#e6edf3;font-size:16px;font-weight:700;margin-bottom:4px">لوحة حوادث السلامة</div>
+      <div style="color:#8b949e;font-size:12px">الهيئة العامة للطرق — منطقة حائل</div>
+    </div>
+
+    <input id="pin-input" type="password" placeholder="أدخل رمز الدخول"
+      maxlength="10" autocomplete="off"
+      style="
+        width:100%;background:#0d1117;border:1px solid #30363d;
+        color:#e6edf3;padding:12px 16px;border-radius:10px;
+        font-size:18px;text-align:center;letter-spacing:6px;
+        outline:none;margin-bottom:12px;font-family:inherit;
+        transition:border .2s;
+      "
+      oninput="this.style.borderColor='#30363d';document.getElementById('login-err').style.display='none'"
+      onkeydown="if(event.key==='Enter')checkPin()"
+    >
+    <div id="login-err" style="color:#f85149;font-size:12px;margin-bottom:10px;display:none">
+      ❌ رمز الدخول غير صحيح
+    </div>
+    <button onclick="checkPin()" style="
+      width:100%;background:#58a6ff;color:#000;border:none;
+      padding:12px;border-radius:10px;font-size:14px;font-weight:700;
+      cursor:pointer;font-family:inherit;transition:background .2s;
+    " onmouseover="this.style.background='#79bbff'" onmouseout="this.style.background='#58a6ff'">
+      دخول
+    </button>
+  </div>
+</div>
+
+<script>
+const VALID = [
+  '6c80cf1e44d265f12435bf5b72b846543dcc8e524319a16037fb37190fa17b65',
+  '10768c26fcd6821ec7ccac19dbb327d64ae07e9e53579db4c27b55b246eccfc7'
+];
+async function checkPin() {
+  const val = document.getElementById('pin-input').value.trim();
+  if (!val) return;
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(val));
+  const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  // تحقق من الأرقام المدمجة + الأرقام المضافة من لوحة الإدارة
+  const extra = JSON.parse(localStorage.getItem('extra_pins') || '[]').map(p=>p.hash);
+  const allValid = [...VALID, ...extra];
+  if (allValid.includes(hash)) {
+    sessionStorage.setItem('auth','1');
+    sessionStorage.setItem('auth_hash', hash);  // احفظ هوية المستخدم
+    document.getElementById('login-screen').style.display='none';
+  } else {
+    document.getElementById('login-err').style.display='block';
+    document.getElementById('pin-input').style.borderColor='#f85149';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').focus();
+  }
+}
+// إذا سبق تسجيل الدخول في نفس الجلسة
+if (sessionStorage.getItem('auth')==='1') {
+  document.getElementById('login-screen').style.display='none';
+}
+document.getElementById('pin-input').focus();
+</script>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="tb-brand">
+    <div class="tb-logo">
+      <img src="logo.svg" alt="الهيئة العامة للطرق">
+    </div>
+    <div>
+      <div class="tb-title">لوحة حوادث السلامة — منطقة حائل</div>
+      <div class="tb-sub">الهيئة العامة للطرق | بيان الحوادث 2023 – 2025م</div>
+    </div>
+  </div>
+  <div class="tb-right">
+    <div class="badge-live"><div class="dot-pulse"></div>مباشر</div>
+    <button class="tbtn" onclick="exportCSV()">📥 تصدير CSV</button>
+    <a href="admin.html" class="tbtn tbtn-primary">⚙️ إدارة البيانات</a>
+    <button class="tbtn" onclick="logout()" title="تسجيل الخروج"
+      style="border-color:#f85149;color:#f85149"
+      onmouseover="this.style.background='rgba(248,81,73,.1)'"
+      onmouseout="this.style.background='transparent'">
+      ⏻ خروج
+    </button>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- KPI ROW -->
+  <div id="kpi-row">
+    <div class="kpi c-blue" onclick="kpiClick('reset')" title="انقر لإعادة تعيين الفلاتر">
+      <div class="kpi-top"><span class="kpi-icon">🚨</span><span class="kpi-trend" id="kpi-pct" style="color:var(--muted)">100%</span></div>
+      <div class="kpi-val" id="k-total">—</div>
+      <div class="kpi-lbl">إجمالي الحوادث</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="kb-total" style="width:100%"></div></div>
+    </div>
+    <div class="kpi c-red" id="kpi-deaths-card" onclick="kpiClick('deaths')" title="انقر للفلترة على الوفيات">
+      <div class="kpi-top"><span class="kpi-icon">💀</span></div>
+      <div class="kpi-val" id="k-deaths">—</div>
+      <div class="kpi-lbl">الوفيات</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="kb-deaths"></div></div>
+    </div>
+    <div class="kpi c-orange" id="kpi-injuries-card" onclick="kpiClick('injuries')" title="انقر للفلترة على الإصابات">
+      <div class="kpi-top"><span class="kpi-icon">🤕</span></div>
+      <div class="kpi-val" id="k-injuries">—</div>
+      <div class="kpi-lbl">الإصابات</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="kb-injuries"></div></div>
+    </div>
+    <div class="kpi c-green" id="kpi-day-card" onclick="kpiClick('day')" title="انقر للفلترة على الحوادث النهارية">
+      <div class="kpi-top"><span class="kpi-icon">☀️</span></div>
+      <div class="kpi-val" id="k-day">—</div>
+      <div class="kpi-lbl">حوادث نهارية</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="kb-day"></div></div>
+    </div>
+    <div class="kpi c-purple" id="kpi-night-card" onclick="kpiClick('night')" title="انقر للفلترة على الحوادث الليلية">
+      <div class="kpi-top"><span class="kpi-icon">🌙</span></div>
+      <div class="kpi-val" id="k-night">—</div>
+      <div class="kpi-lbl">حوادث ليلية</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="kb-night"></div></div>
+    </div>
+    <div class="kpi c-cyan">
+      <div class="kpi-top"><span class="kpi-icon">📍</span></div>
+      <div class="kpi-val" id="k-roads">—</div>
+      <div class="kpi-lbl">طرق مرصودة</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="kb-roads" style="width:100%"></div></div>
+    </div>
+    <div class="kpi c-blue" id="kpi-month-card" onclick="kpiClick('peak-month')" title="انقر للفلترة على أعلى شهر">
+      <div class="kpi-top"><span class="kpi-icon">📅</span></div>
+      <div class="kpi-val" id="k-peak-month" style="font-size:14px;margin-top:4px">—</div>
+      <div class="kpi-lbl">أعلى شهر حوادثاً</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%"></div></div>
+    </div>
+    <div class="kpi c-orange" id="kpi-hour-card" onclick="kpiClick('peak-hour')" title="انقر للفلترة على أعلى ساعة">
+      <div class="kpi-top"><span class="kpi-icon">⏰</span></div>
+      <div class="kpi-val" id="k-peak-hour" style="font-size:14px;margin-top:4px">—</div>
+      <div class="kpi-lbl">أعلى ساعة خطورة</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%;background:var(--orange)"></div></div>
+    </div>
+  </div>
+
+  <!-- MAIN 3-COL AREA -->
+  <div id="main-area">
+
+    <!-- LEFT PANEL -->
+    <div id="left-panel">
+      <div class="panel-tabs">
+        <button class="ptab active" id="ptab-filter" onclick="switchPTab('filter')">🔽 الفلاتر</button>
+        <button class="ptab" id="ptab-roads" onclick="switchPTab('roads')">🛣️ الطرق</button>
+      </div>
+
+      <!-- FILTER PANE -->
+      <div id="filter-pane">
+        <div class="fg">
+          <label>السنة</label>
+          <div class="chip-wrap" id="year-chips">
+            <div class="chip on" onclick="toggleChip(this,2023,flt.years)">2023</div>
+            <div class="chip on" onclick="toggleChip(this,2024,flt.years)">2024</div>
+            <div class="chip on" onclick="toggleChip(this,2025,flt.years)">2025</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label>الشهر</label>
+          <div class="chip-wrap" id="month-chips"></div>
+        </div>
+        <div class="fg">
+          <label>رقم العقد</label>
+          <div class="chip-wrap" id="contract-chips"></div>
+        </div>
+        <div class="fg">
+          <label>حالة الطقس</label>
+          <div class="chip-wrap" id="weather-chips"></div>
+        </div>
+        <div class="fg">
+          <label>ليل / نهار</label>
+          <div class="chip-wrap" id="daynight-chips">
+            <div class="chip" onclick="toggleChip(this,'day',flt.daynight)" data-val="day">☀️ نهار</div>
+            <div class="chip" onclick="toggleChip(this,'night',flt.daynight)" data-val="night">🌙 ليل</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label>الطريق</label>
+          <select id="sel-road" onchange="applyFilters()">
+            <option value="">— جميع الطرق —</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>نوع المركبة</label>
+          <select id="sel-vehicle" onchange="applyFilters()">
+            <option value="">— جميع المركبات —</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>سبب الحادث</label>
+          <div class="chip-wrap" id="cause-chips"></div>
+        </div>
+        <div class="fg" style="display:flex;gap:6px">
+          <div style="flex:1">
+            <label>من تاريخ</label>
+            <input type="date" id="d-from" onchange="applyFilters()">
+          </div>
+          <div style="flex:1">
+            <label>إلى تاريخ</label>
+            <input type="date" id="d-to" onchange="applyFilters()">
+          </div>
+        </div>
+        <button class="reset" onclick="resetFilters()">🔄 إعادة تعيين</button>
+        <div style="margin-top:12px;font-size:11px;color:var(--muted);line-height:1.8">
+          <div>📊 المعروض: <strong id="shown-count" style="color:var(--text)">—</strong> / <span id="total-count">—</span></div>
+          <div>📅 آخر تحديث: <strong id="last-update" style="color:var(--text)">—</strong></div>
+        </div>
+      </div>
+
+      <!-- ROADS PANE -->
+      <div id="road-pane" style="display:none">
+        <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
+          <input type="text" id="road-search" placeholder="🔍 ابحث عن طريق..." oninput="renderRoadTable()">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>الطريق</th>
+              <th>عقد</th>
+              <th>حوادث</th>
+              <th>وفيات</th>
+              <th>إصابات</th>
+            </tr>
+          </thead>
+          <tbody id="road-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CENTER: MAP -->
+    <div id="center-panel">
+      <div id="map"></div>
+      <!-- layer switcher -->
+      <div id="layer-switcher">
+        <button class="lbtn active" id="lb-google"   onclick="setLayer('google')">🛰️ Google</button>
+        <button class="lbtn"        id="lb-hybrid"   onclick="setLayer('hybrid')">🏷️ هجين</button>
+        <button class="lbtn"        id="lb-esri"     onclick="setLayer('esri')">🌍 ESRI</button>
+        <button class="lbtn"        id="lb-dark"     onclick="setLayer('dark')">🌑 داكن</button>
+      </div>
+      <div id="map-overlay">
+        <div class="map-pill">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">⚠️ تعرض حوادث الوفيات فقط</div>
+          <div class="map-legend">
+            <div class="leg-item"><div class="leg-dot" style="background:#e53935;border:2px solid #fff;box-shadow:0 0 0 1px #e53935"></div>وفاة واحدة</div>
+            <div class="leg-item"><div class="leg-dot" style="background:#e53935;border:2px solid #fff;box-shadow:0 0 0 1px #e53935;width:16px;height:16px"></div>وفيات متعددة</div>
+          </div>
+        </div>
+      </div>
+      <div id="map-bottom">
+        <span id="map-count">—</span>
+        <div class="map-btns">
+          <button class="tbtn" onclick="mapFit()">🎯 توسيط</button>
+          <button class="tbtn" id="heatmode-btn" onclick="toggleHeatMode()">🔥 كثافة</button>
+          <button class="tbtn" onclick="toggleDrawer()">📋 الجدول</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Mini Charts -->
+    <div id="right-panel">
+      <div class="panel-header">
+        <span>📊 مخططات سريعة</span>
+      </div>
+      <div id="charts-scroll">
+
+        <div class="mini-chart-card">
+          <div class="mc-title"><div class="mc-dot" style="background:var(--accent)"></div>الحوادث شهرياً</div>
+          <canvas id="mc-monthly" class="mc-canvas"></canvas>
+        </div>
+
+        <div class="mini-chart-card">
+          <div class="mc-title"><div class="mc-dot" style="background:var(--red)"></div>الوفيات / الإصابات</div>
+          <canvas id="mc-casualties" class="mc-canvas"></canvas>
+        </div>
+
+        <div class="mini-chart-card">
+          <div class="mc-title"><div class="mc-dot" style="background:var(--orange)"></div>الساعات الخطرة</div>
+          <canvas id="mc-hourly" class="mc-canvas"></canvas>
+        </div>
+
+        <div class="mini-chart-card">
+          <div class="mc-title"><div class="mc-dot" style="background:var(--purple)"></div>حالة الطقس</div>
+          <canvas id="mc-weather" class="mc-canvas"></canvas>
+        </div>
+
+        <div class="mini-chart-card">
+          <div class="mc-title"><div class="mc-dot" style="background:var(--green)"></div>أسباب الحوادث</div>
+          <canvas id="mc-causes" class="mc-canvas"></canvas>
+        </div>
+
+        <div class="mini-chart-card">
+          <div class="mc-title"><div class="mc-dot" style="background:var(--cyan)"></div>أيام الأسبوع</div>
+          <canvas id="mc-days" class="mc-canvas"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM DATA DRAWER -->
+  <div id="data-drawer" class="closed">
+    <div id="drawer-handle" onclick="toggleDrawer()">
+      <div class="dh-title">📋 سجل الحوادث — <span id="tbl-count">—</span></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="text" id="tbl-search" placeholder="بحث..." style="width:140px;height:24px;font-size:11px" onclick="event.stopPropagation()" oninput="renderTable()">
+        <span class="dh-toggle" id="drawer-icon">▲ فتح</span>
+      </div>
+    </div>
+    <div id="table-wrap">
+      <table id="incidents-tbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>السنة</th>
+            <th>التاريخ</th>
+            <th>الطريق</th>
+            <th>رقم العقد</th>
+            <th>العلامة الكيلومترية</th>
+            <th>نوع المركبة</th>
+            <th>ليل/نهار</th>
+            <th>الشهر</th>
+            <th>الساعة</th>
+            <th>الطقس</th>
+            <th>وفيات</th>
+            <th>إصابات</th>
+            <th>فئة السبب</th>
+            <th>الجهة المباشرة</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- INCIDENT DETAIL MODAL -->
+<div id="detail-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">🚨 تفاصيل الحادث</div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<div id="notify"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// Data
+// ═══════════════════════════════════════════════
+let ALL = [], FILT = [];
+let charts = {};
+let mapObj = null, markersLayer = null;
+let heatMode = false;
+let drawerOpen = false;
+
+const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const DAYS7 = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const PALETTE = ['#58a6ff','#f85149','#3fb950','#f0883e','#bc8cff','#39d353','#ffa657','#79c0ff','#56d364','#ff7b72'];
+
+let flt = { years:[2023,2024,2025], months:[], contracts:[], weathers:[], daynight:[], road:'', vehicle:'', causes:[], from:'', to:'' };
+
+// فلاتر المخططات والـ KPI — تعمل بشكل مستقل وتُدمج مع flt
+let cf = { month:null, hour:null, weather:null, cause:null, weekday:null, deathsOnly:false, injuriesOnly:false };
+
+// ═══════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════
+async function init() {
+  try {
+    const r = await fetch('incidents_data.json?v=' + Date.now());
+    ALL = await r.json();
+    document.getElementById('total-count').textContent = ALL.length;
+
+    const dates = ALL.map(d => d.date).filter(Boolean).sort();
+    if (dates.length) document.getElementById('last-update').textContent = dates[dates.length-1];
+
+    buildFilters();
+    applyFilters();
+    initMap();
+  } catch(e) {
+    notify('فشل تحميل البيانات: ' + e.message, true);
+  }
+}
+
+function isDayTime(hour, dayNight) {
+  if (dayNight === 'نهار') return true;
+  if (dayNight === 'ليل')  return false;
+  return hour >= 6 && hour < 18;
+}
+
+// ═══════════════════════════════════════════════
+// Filters
+// ═══════════════════════════════════════════════
+function buildFilters() {
+  // Months
+  const mc = document.getElementById('month-chips');
+  MONTHS.forEach(m => {
+    if (!ALL.some(d => d.month_name === m)) return;
+    const c = mkChip(m, m.slice(0,4), flt.months);
+    mc.appendChild(c);
+  });
+
+  // Contracts
+  const cc = document.getElementById('contract-chips');
+  [...new Set(ALL.map(d => d.contract).filter(Boolean))].sort().forEach(v => {
+    const c = mkChip(v, 'عقد ' + v, flt.contracts);
+    cc.appendChild(c);
+  });
+
+  // Weather
+  const wc = document.getElementById('weather-chips');
+  [...new Set(ALL.map(d => d.weather).filter(Boolean))].sort().forEach(v => {
+    const c = mkChip(v, v, flt.weathers);
+    wc.appendChild(c);
+  });
+
+  // Roads
+  const rs = document.getElementById('sel-road');
+  [...new Set(ALL.map(d => d.road_name).filter(Boolean))].sort().forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    rs.appendChild(o);
+  });
+
+  // Vehicles — extract individual names from combined entries
+  const vs = document.getElementById('sel-vehicle');
+  const vehicleSet = new Set();
+  ALL.forEach(d => {
+    if (!d.vehicle_type) return;
+    splitVehicles(d.vehicle_type).forEach(v => vehicleSet.add(v));
+  });
+  [...vehicleSet].sort((a,b) => a.localeCompare(b, 'ar')).forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    vs.appendChild(o);
+  });
+
+  // Cause categories
+  const CAUSE_ICONS = {
+    'عدم الانتباه':     '😴',
+    'انحراف المركبة':   '🔄',
+    'انفجار الإطار':    '💥',
+    'صدم حيوان سائب':  '🐪',
+    'عطل فني':          '🔧',
+    'تجاوز خاطئ':      '↩️',
+    'النعاس':           '💤',
+  };
+  const causeEl = document.getElementById('cause-chips');
+  const catSet = [...new Set(ALL.map(d => d.cause_category).filter(Boolean))].sort();
+  catSet.forEach(cat => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = (CAUSE_ICONS[cat] || '') + ' ' + cat;
+    chip.onclick = () => toggleChip(chip, cat, flt.causes);
+    causeEl.appendChild(chip);
+  });
+}
+
+// تقسيم حقل المركبة إلى أسماء مفردة
+function splitVehicles(str) {
+  return str.split(/[+\-،,\/]+/)
+            .map(v => v.trim())
+            .filter(v => v.length > 1);
+}
+
+// عرض المركبة في العمود: المطابقة للفلتر أو الأولى
+function displayVehicle(vehicleStr, filterTerm) {
+  if (!vehicleStr) return '—';
+  const parts = splitVehicles(vehicleStr);
+  if (!parts.length) return vehicleStr.slice(0,14);
+  if (filterTerm) {
+    const match = parts.find(v => v.includes(filterTerm) || filterTerm.includes(v));
+    if (match) {
+      const others = parts.filter(v => v !== match);
+      return match.slice(0,16) + (others.length ? ` <span style="color:var(--muted);font-size:10px">+${others.length}</span>` : '');
+    }
+  }
+  const first = parts[0].slice(0,16);
+  return first + (parts.length > 1 ? ` <span style="color:var(--muted);font-size:10px">+${parts.length-1}</span>` : '');
+}
+
+function mkChip(val, label, arr) {
+  const c = document.createElement('div');
+  c.className = 'chip';
+  c.textContent = label;
+  c.onclick = () => toggleChip(c, val, arr);
+  return c;
+}
+
+function toggleChip(el, val, arr) {
+  // السنة تأتي كرقم
+  const v = typeof val === 'number' ? val : val;
+  const i = arr.indexOf(v);
+  if (i === -1) { arr.push(v); el.classList.add('on'); }
+  else { arr.splice(i, 1); el.classList.remove('on'); }
+  applyFilters();
+}
+
+function resetFilters() {
+  flt = { years:[2023,2024,2025], months:[], contracts:[], weathers:[], daynight:[], road:'', vehicle:'', causes:[], from:'', to:'' };
+  clearCF();
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  document.querySelectorAll('#year-chips .chip').forEach(c => c.classList.add('on'));
+  document.getElementById('sel-road').value = '';
+  document.getElementById('sel-vehicle').value = '';
+  document.getElementById('d-from').value = '';
+  document.getElementById('d-to').value = '';
+  applyFilters();
+}
+
+function applyFilters() {
+  flt.road = document.getElementById('sel-road').value;
+  flt.vehicle = document.getElementById('sel-vehicle').value;
+  flt.from = document.getElementById('d-from').value;
+  flt.to = document.getElementById('d-to').value;
+
+  FILT = ALL.filter(d => {
+    if (flt.years.length && !flt.years.includes(d.year)) return false;
+    if (flt.months.length && !flt.months.includes(d.month_name)) return false;
+    if (flt.contracts.length && !flt.contracts.includes(d.contract)) return false;
+    if (flt.weathers.length && !flt.weathers.includes(d.weather)) return false;
+    if (flt.daynight.length && !d.is_aggregate) {
+      const isDay = isDayTime(d.hour, d.day_night);
+      if (flt.daynight.includes('day') && !isDay && !flt.daynight.includes('night')) return false;
+      if (flt.daynight.includes('night') && isDay && !flt.daynight.includes('day')) return false;
+    }
+    if (flt.road && d.road_name !== flt.road) return false;
+    if (flt.vehicle && !splitVehicles(d.vehicle_type || '').some(v => v.includes(flt.vehicle) || flt.vehicle.includes(v))) return false;
+    if (flt.causes.length && !flt.causes.includes(d.cause_category)) return false;
+    if (flt.from && d.date < flt.from) return false;
+    if (flt.to && d.date > flt.to) return false;
+    // ── فلاتر المخططات والـ KPI ──
+    if (cf.month   && d.month_name !== cf.month)    return false;
+    if (cf.hour    !== null && !d.is_aggregate && d.hour !== cf.hour) return false;
+    if (cf.weather && d.weather !== cf.weather)      return false;
+    if (cf.cause   && d.cause_category !== cf.cause) return false;
+    if (cf.weekday && d.week_day !== cf.weekday)     return false;
+    if (cf.deathsOnly   && d.deaths   <= 0) return false;
+    if (cf.injuriesOnly && d.injuries <= 0 && d.deaths <= 0) return false;
+    return true;
+  });
+
+  document.getElementById('shown-count').textContent = FILT.length;
+  updateKPIs();
+  renderCharts();
+  updateMapMarkers();
+  renderTable();
+  renderRoadTable();
+}
+
+// ═══════════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════════
+function updateKPIs() {
+  // total_incidents: للسجلات المجمّعة (2023) نستخدم الحقل، للتفصيلية نعدّ 1 لكل سجل
+  const n = FILT.reduce((s,d) => s + (d.is_aggregate ? (d.total_incidents||1) : 1), 0);
+  const deaths   = FILT.reduce((s,d) => s + d.deaths, 0);
+  const injuries = FILT.reduce((s,d) => s + d.injuries, 0);
+  const dayInc   = FILT.filter(d => !d.is_aggregate && d.hour >= 6 && d.hour < 18).length
+                 + FILT.filter(d =>  d.is_aggregate).reduce((s,d)=>s+(d.day_incidents||0),0);
+  const nightInc = FILT.filter(d => !d.is_aggregate && d.hour >= 0 && (d.hour < 6 || d.hour >= 18)).length
+                 + FILT.filter(d =>  d.is_aggregate).reduce((s,d)=>s+(d.night_incidents||0),0);
+  const roads = new Set(FILT.map(d => d.road_name).filter(Boolean)).size;
+
+  // Peak month (تفصيلي فقط)
+  const mCount = {};
+  FILT.filter(d=>!d.is_aggregate).forEach(d => { if (d.month_name) mCount[d.month_name] = (mCount[d.month_name]||0)+1; });
+  const peakMonth = Object.entries(mCount).sort((a,b) => b[1]-a[1])[0];
+
+  // Peak hour
+  const hCount = new Array(24).fill(0);
+  FILT.filter(d=>!d.is_aggregate).forEach(d => { if (d.hour >= 0) hCount[d.hour]++; });
+  const peakHour = hCount.indexOf(Math.max(...hCount));
+
+  // الإجمالي الكلي للمقارنة (بنفس طريقة الحساب)
+  const totalAll = ALL.reduce((s,d) => s + (d.is_aggregate ? (d.total_incidents||1) : 1), 0);
+  const pct = totalAll ? Math.min(100, Math.round((n/totalAll)*100)) : 100;
+
+  setKPI('k-total',   n,       'kb-total',   totalAll,                                     n);
+  setKPI('k-deaths',  deaths,  'kb-deaths',  ALL.reduce((s,d)=>s+d.deaths,0),              deaths);
+  setKPI('k-injuries',injuries,'kb-injuries', ALL.reduce((s,d)=>s+d.injuries,0),           injuries);
+  setKPI('k-day',     dayInc,  'kb-day',      n,                                            dayInc);
+  setKPI('k-night',   nightInc,'kb-night',    n,                                            nightInc);
+  setKPI('k-roads',   roads,   'kb-roads',    new Set(ALL.map(d=>d.road_name)).size,        roads);
+
+  _peakMonth = peakMonth ? peakMonth[0] : null;
+  _peakHour  = peakHour;
+  document.getElementById('k-peak-month').textContent = peakMonth ? peakMonth[0] + ' (' + peakMonth[1] + ')' : '—';
+  document.getElementById('k-peak-hour').textContent  = peakHour >= 0 ? `${peakHour}:00 – ${peakHour+1}:00` : '—';
+  document.getElementById('kpi-pct').textContent = pct + '% من الكل';
+
+  // تحديث الحالة البصرية للـ KPIs
+  toggleKpiActive('kpi-deaths-card',   cf.deathsOnly);
+  toggleKpiActive('kpi-injuries-card', cf.injuriesOnly);
+  toggleKpiActive('kpi-day-card',      flt.daynight.includes('day')   && flt.daynight.length===1);
+  toggleKpiActive('kpi-night-card',    flt.daynight.includes('night') && flt.daynight.length===1);
+  toggleKpiActive('kpi-month-card',    cf.month !== null);
+  toggleKpiActive('kpi-hour-card',     cf.hour  !== null);
+}
+
+function setKPI(valId, val, barId, total, cur) {
+  document.getElementById(valId).textContent = val.toLocaleString('ar');
+  const pct = total ? Math.round((cur/total)*100) : 0;
+  const bar = document.getElementById(barId);
+  if (bar) bar.style.width = pct + '%';
+}
+
+// ═══════════════════════════════════════════════
+// Road Table
+// ═══════════════════════════════════════════════
+function renderRoadTable() {
+  const search = (document.getElementById('road-search')?.value || '').toLowerCase();
+  const roadMap = {};
+
+  FILT.forEach(d => {
+    const k = d.road_name || 'غير محدد';
+    if (!roadMap[k]) roadMap[k] = { contract: d.contract, count:0, deaths:0, injuries:0 };
+    roadMap[k].count++;
+    roadMap[k].deaths += d.deaths;
+    roadMap[k].injuries += d.injuries;
+  });
+
+  let entries = Object.entries(roadMap).sort((a,b) => b[1].count - a[1].count);
+  if (search) entries = entries.filter(e => e[0].includes(search));
+
+  document.getElementById('road-tbody').innerHTML = entries.map(([name, s]) => `
+    <tr onclick="selectRoad('${name.replace(/'/g,"\\'")}')">
+      <td><div class="r-name" title="${name}">${name}</div></td>
+      <td><span class="mini-pill mp-blue">${s.contract}</span></td>
+      <td><span class="mini-pill mp-blue">${s.count}</span></td>
+      <td>${s.deaths > 0 ? `<span class="mini-pill mp-red">${s.deaths}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
+      <td>${s.injuries > 0 ? `<span class="mini-pill mp-ora">${s.injuries}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">لا توجد بيانات</td></tr>';
+}
+
+function selectRoad(name) {
+  document.getElementById('sel-road').value = name;
+  flt.road = name;
+  applyFilters();
+  switchPTab('filter');
+}
+
+// ═══════════════════════════════════════════════
+// Chart filter toggle — النقر على المخطط يُفعّل/يُلغي الفلتر
+// ═══════════════════════════════════════════════
+function toggleCF(key, val) {
+  cf[key] = cf[key] === val ? null : val;
+  applyFilters();
+}
+function clearCF() {
+  cf = { month:null, hour:null, weather:null, cause:null, weekday:null, deathsOnly:false, injuriesOnly:false };
+  // reset KPI active styles
+  document.querySelectorAll('.kpi').forEach(k => k.classList.remove('kpi-active'));
+}
+
+// ألوان النقر: عنصر محدد ساطع، باقيها خافتة
+function highlightColors(labels, activeLabel, baseColors, alpha='cc', dimAlpha='33') {
+  return labels.map((l,i) => {
+    const base = (typeof baseColors === 'string') ? baseColors : baseColors[i % baseColors.length];
+    if (!activeLabel) return base + alpha;
+    return l === activeLabel ? base + 'ff' : base + dimAlpha;
+  });
+}
+
+// ═══════════════════════════════════════════════
+// Charts
+// ═══════════════════════════════════════════════
+const CO = {
+  responsive:true, maintainAspectRatio:true,
+  plugins:{ legend:{ display:false }, tooltip:{ rtl:true, titleFont:{family:'Segoe UI'}, bodyFont:{family:'Segoe UI'} }},
+  scales:{}
+};
+
+function mkChart(id, type, labels, datasets, extraOpts={}, onClickFn=null) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (charts[id]) charts[id].destroy();
+  const gridC = 'rgba(48,54,61,.5)', tickC = '#8b949e';
+  const opts = {
+    ...CO, ...extraOpts,
+    plugins: { ...CO.plugins, ...(extraOpts.plugins||{}) },
+    cursor: onClickFn ? 'pointer' : 'default',
+  };
+  if (onClickFn) {
+    opts.onClick = (event, elements) => {
+      if (!elements.length) return;
+      const label = labels[elements[0].index];
+      onClickFn(label);
+    };
+    // تغيير شكل المؤشر عند التحويم
+    opts.onHover = (event, elements) => {
+      event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+    };
+  }
+  if (type !== 'pie' && type !== 'doughnut') {
+    opts.scales = {
+      x:{ ticks:{color:tickC,font:{family:'Segoe UI',size:10}}, grid:{color:gridC} },
+      y:{ ticks:{color:tickC,font:{family:'Segoe UI',size:10}}, grid:{color:gridC} },
+      ...(extraOpts.scales||{})
+    };
+  }
+  charts[id] = new Chart(ctx, { type, data:{ labels, datasets }, options:opts });
+  // رسم حافة ملوّنة على البطاقة إذا كان المخطط مفعّلاً
+  const card = ctx.closest('.mini-chart-card');
+  if (card) card.style.borderColor = onClickFn ? 'var(--border)' : 'var(--border)';
+}
+
+function countBy(arr, key) {
+  const c = {};
+  arr.forEach(d => { const v = (d[key]||'غير محدد').trim(); c[v] = (c[v]||0)+1; });
+  return c;
+}
+
+function renderCharts() {
+  const gridC = 'rgba(48,54,61,.5)', tickC='#8b949e';
+
+  // ── 1. الحوادث شهرياً ──────────────────────
+  const mData = {}; MONTHS.forEach(m => mData[m]=0);
+  FILT.forEach(d => { if(d.month_name) mData[d.month_name]++; });
+  const mLabels = MONTHS.map(m=>m.slice(0,3));
+  const mActive = cf.month ? cf.month.slice(0,3) : null;
+  mkChart('mc-monthly','bar', mLabels, [{
+    data: MONTHS.map(m=>mData[m]),
+    backgroundColor: mLabels.map((l,i) => mActive
+      ? (l===mActive ? PALETTE[i%PALETTE.length]+'ff' : PALETTE[i%PALETTE.length]+'33')
+      : PALETTE[i%PALETTE.length]+'aa'),
+    borderColor: mLabels.map((l,i) => PALETTE[i%PALETTE.length]),
+    borderWidth: mLabels.map(l => mActive && l===mActive ? 2 : 1),
+    borderRadius:3,
+  }], {}, label => toggleCF('month', MONTHS.find(m=>m.slice(0,3)===label)));
+  markActiveCard('mc-monthly', cf.month !== null);
+
+  // ── 2. الوفيات / الإصابات ──────────────────
+  const mD={}, mI={};
+  MONTHS.forEach(m=>{mD[m]=0;mI[m]=0;});
+  FILT.forEach(d=>{ if(d.month_name){mD[d.month_name]+=d.deaths; mI[d.month_name]+=d.injuries;} });
+  mkChart('mc-casualties','line', mLabels, [
+    { label:'وفيات',  data:MONTHS.map(m=>mD[m]), borderColor:'#f85149', backgroundColor:'rgba(248,81,73,.1)', tension:.4, fill:true, pointRadius:3, pointHoverRadius:5 },
+    { label:'إصابات', data:MONTHS.map(m=>mI[m]), borderColor:'#f0883e', backgroundColor:'rgba(240,136,62,.1)', tension:.4, fill:true, pointRadius:3, pointHoverRadius:5 }
+  ], { plugins:{ legend:{ display:true, labels:{color:'#8b949e',boxWidth:10,font:{size:10,family:'Segoe UI'}} }}},
+  label => toggleCF('month', MONTHS.find(m=>m.slice(0,3)===label)));
+  markActiveCard('mc-casualties', cf.month !== null);
+
+  // ── 3. الساعات الخطرة ──────────────────────
+  const hData = new Array(24).fill(0);
+  FILT.forEach(d=>{ if(d.hour>=0) hData[d.hour]++; });
+  const hLabels = Array.from({length:24},(_,i)=>`${i}`);
+  mkChart('mc-hourly','bar', hLabels, [{
+    data: hData,
+    backgroundColor: hLabels.map((l,i) => {
+      const active = cf.hour !== null;
+      const sel = cf.hour === i;
+      if (active) return sel ? '#f85149ff' : '#f8514922';
+      return hData[i] > 12 ? '#f8514999' : '#58a6ff55';
+    }),
+    borderColor: hLabels.map((l,i) => hData[i] > 12 ? '#f85149' : '#58a6ff'),
+    borderWidth:1, borderRadius:2,
+  }], {}, label => toggleCF('hour', cf.hour === parseInt(label) ? null : parseInt(label)));
+  markActiveCard('mc-hourly', cf.hour !== null);
+
+  // ── 4. حالة الطقس ──────────────────────────
+  const wC = countBy(FILT,'weather');
+  const wE = Object.entries(wC).filter(e=>e[0]).sort((a,b)=>b[1]-a[1]);
+  const wLabels = wE.map(e=>e[0]);
+  mkChart('mc-weather','doughnut', wLabels, [{
+    data: wE.map(e=>e[1]),
+    backgroundColor: wLabels.map((l,i) => cf.weather
+      ? (l===cf.weather ? PALETTE[i%PALETTE.length]+'ff' : PALETTE[i%PALETTE.length]+'22')
+      : PALETTE[i%PALETTE.length]+'cc'),
+    borderColor: wLabels.map((l,i)=> l===cf.weather ? '#fff' : '#1c2333'),
+    borderWidth: wLabels.map(l => l===cf.weather ? 3 : 2),
+  }], { plugins:{ legend:{ display:true, position:'bottom', labels:{color:'#8b949e',boxWidth:8,font:{size:9,family:'Segoe UI'},padding:6}}}},
+  label => toggleCF('weather', label));
+  markActiveCard('mc-weather', cf.weather !== null);
+
+  // ── 5. أسباب الحوادث ───────────────────────
+  const causeData = {};
+  FILT.forEach(d=>{ if(d.cause_category) causeData[d.cause_category]=(causeData[d.cause_category]||0)+1; });
+  const cE = Object.entries(causeData).sort((a,b)=>b[1]-a[1]);
+  const cLabels = cE.map(e=>e[0]);
+  mkChart('mc-causes','bar', cLabels, [{
+    data: cE.map(e=>e[1]),
+    backgroundColor: cLabels.map((l,i) => cf.cause
+      ? (l===cf.cause ? PALETTE[i%PALETTE.length]+'ff' : PALETTE[i%PALETTE.length]+'22')
+      : PALETTE[i%PALETTE.length]+'99'),
+    borderColor: cLabels.map((l,i) => PALETTE[i%PALETTE.length]),
+    borderWidth: cLabels.map(l => l===cf.cause ? 2 : 1),
+    borderRadius:3,
+  }], { indexAxis:'y' }, label => toggleCF('cause', label));
+  markActiveCard('mc-causes', cf.cause !== null);
+
+  // ── 6. أيام الأسبوع ────────────────────────
+  const dData = {}; DAYS7.forEach(d=>dData[d]=0);
+  FILT.forEach(d=>{ if(d.week_day) dData[d.week_day]=(dData[d.week_day]||0)+1; });
+  const dLabels = DAYS7.map(d=>d.slice(0,3));
+  mkChart('mc-days','bar', dLabels, [{
+    data: DAYS7.map(d=>dData[d]),
+    backgroundColor: dLabels.map((l,i) => {
+      const active = cf.weekday !== null;
+      const sel = cf.weekday === DAYS7[i];
+      if (active) return sel ? '#f85149ff' : '#f8514922';
+      return (i===5||i===6) ? '#f8514999' : '#58a6ff77';
+    }),
+    borderColor: dLabels.map((_,i) => (i===5||i===6)?'#f85149':'#58a6ff'),
+    borderWidth:1, borderRadius:3,
+  }], {}, label => toggleCF('weekday', DAYS7.find(d=>d.slice(0,3)===label)));
+  markActiveCard('mc-days', cf.weekday !== null);
+}
+
+// إبراز بطاقة المخطط عند التفعيل
+function markActiveCard(chartId, isActive) {
+  const card = document.getElementById(chartId)?.closest('.mini-chart-card');
+  if (!card) return;
+  card.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
+  card.style.boxShadow   = isActive ? '0 0 0 1px var(--accent)' : 'none';
+}
+
+// ═══════════════════════════════════════════════
+// Map
+// ═══════════════════════════════════════════════
+const TILE_LAYERS = {
+  google: {
+    url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    opts: { subdomains:['0','1','2','3'], attribution:'© Google Maps', maxZoom:21, tileSize:256 }
+  },
+  hybrid: {
+    url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    opts: { subdomains:['0','1','2','3'], attribution:'© Google Maps', maxZoom:21, tileSize:256 }
+  },
+  esri: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    opts: { attribution:'© Esri, Maxar, Earthstar Geographics', maxZoom:19 }
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    opts: { attribution:'© OpenStreetMap © CARTO', maxZoom:20 }
+  }
+};
+
+let activeLayer = null;
+let currentLayerKey = 'google';
+
+function initMap() {
+  mapObj = L.map('map', { center:[27.52,41.69], zoom:7, zoomControl:true, attributionControl:false });
+  L.control.attribution({ position:'bottomleft', prefix:false }).addTo(mapObj);
+  applyTileLayer('google');
+  // markersLayer will be created in updateMapMarkers
+  updateMapMarkers();
+}
+
+function applyTileLayer(key) {
+  if (activeLayer) mapObj.removeLayer(activeLayer);
+  const t = TILE_LAYERS[key];
+  activeLayer = L.tileLayer(t.url, t.opts).addTo(mapObj);
+  currentLayerKey = key;
+  document.querySelectorAll('.lbtn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('lb-' + key);
+  if (btn) btn.classList.add('active');
+}
+
+function setLayer(key) { applyTileLayer(key); }
+
+// ── Severity helpers ──────────────────────────────────────────
+function severity(inc) {
+  if (inc.deaths   > 0) return 'red';
+  if (inc.injuries > 0) return 'orange';
+  return 'green';
+}
+
+const SEV_COLOR = { red:'#e53935', orange:'#f57c00', green:'#2e7d32' };
+const SEV_LIGHT = { red:'#ef9a9a', orange:'#ffcc80', green:'#a5d6a7' };
+
+// Cluster icon factory — colour driven by worst severity inside
+function clusterIcon(cluster) {
+  const markers = cluster.getAllChildMarkers();
+  const total = markers.length;
+  let sev = 'green';
+  for (const m of markers) {
+    if (m._sev === 'red')    { sev = 'red';    break; }
+    if (m._sev === 'orange') { sev = 'orange'; }
+  }
+  const sz = total < 10 ? 36 : total < 50 ? 44 : total < 100 ? 52 : 60;
+  return L.divIcon({
+    html: `<div class="cluster-icon cluster-${sev}" style="width:${sz}px;height:${sz}px;font-size:${sz<44?12:14}px">${total}</div>`,
+    iconSize: [sz, sz],
+    iconAnchor: [sz/2, sz/2],
+    className: ''
+  });
+}
+
+// ── Build / rebuild marker cluster layer ─────────────────────
+function updateMapMarkers() {
+  if (!mapObj) return;
+
+  // Remove previous cluster layer
+  if (markersLayer) { mapObj.removeLayer(markersLayer); markersLayer = null; }
+
+  markersLayer = L.markerClusterGroup({
+    iconCreateFunction: clusterIcon,
+    maxClusterRadius: 60,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    animate: true,
+    animateAddingMarkers: false,
+    disableClusteringAtZoom: 14   // نقاط مفككة عند zoom 14+
+  });
+
+  FILT.forEach(inc => {
+    if (!inc.lat || !inc.lng) return;
+    if (inc.deaths <= 0) return;  // الخريطة تعرض حوادث الوفيات فقط
+
+    const sev   = severity(inc);
+    const color = SEV_COLOR[sev];
+    const dn    = isDayTime(inc.hour, inc.day_night) ? '☀️ نهار' : '🌙 ليل';
+
+    let iconHtml, sz;
+    if (inc.is_aggregate) {
+      // 2023: مربّع بحجم يعكس عدد الحوادث
+      const cnt = inc.total_incidents || 1;
+      sz = Math.max(12, Math.min(28, 12 + Math.sqrt(cnt) * 1.5));
+      iconHtml = `<div style="
+        width:${sz}px;height:${sz}px;background:${color};
+        border:2px solid #fff;border-radius:3px;
+        box-shadow:0 0 0 1.5px ${color},0 2px 6px rgba(0,0,0,.55);
+        display:flex;align-items:center;justify-content:center;
+        font-size:8px;color:#fff;font-weight:700;
+      ">${cnt}</div>`;
+    } else {
+      sz = sev === 'red' ? 14 : sev === 'orange' ? 12 : 10;
+      iconHtml = `<div style="
+        width:${sz}px;height:${sz}px;background:${color};
+        border:2px solid #fff;border-radius:50%;
+        box-shadow:0 0 0 1.5px ${color},0 2px 6px rgba(0,0,0,.55);
+      "></div>`;
+    }
+
+    const icon = L.divIcon({
+      html: iconHtml,
+      iconSize:   [sz, sz],
+      iconAnchor: [sz/2, sz/2],
+      className:  ''
+    });
+
+    const m = L.marker([inc.lat, inc.lng], { icon });
+    m._sev = sev;   // store for cluster colouring
+
+    m.bindPopup(`
+      <div dir="rtl" style="font-family:Tahoma,Arial;min-width:240px;font-size:12px;color:#111">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;
+             border-bottom:3px solid ${color};padding-bottom:6px;color:${color}">
+          🚨 حادث مروري
+        </div>
+        <table style="width:100%;border-collapse:collapse;line-height:1.75">
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">📅 التاريخ</td><td><b>${inc.date}</b> ${inc.time||''}</td></tr>
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">🛣️ الطريق</td><td><b>${inc.road_name}</b></td></tr>
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">📋 العقد</td><td>${inc.contract}</td></tr>
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">📍 الكيلو</td><td dir="ltr">${inc.km_mark}</td></tr>
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">🚗 المركبة</td><td>${inc.vehicle_type}</td></tr>
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">⛅ الطقس</td><td>${inc.weather}</td></tr>
+          <tr><td style="color:#888;padding-left:6px;white-space:nowrap">${dn}</td><td>${inc.month_name} — ${inc.hour>=0?inc.hour+':00':'—'}</td></tr>
+        </table>
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <span style="background:${inc.deaths>0?SEV_COLOR.red:'#eee'};color:${inc.deaths>0?'#fff':'#999'};padding:3px 10px;border-radius:8px;font-weight:700;font-size:11px">💀 ${inc.deaths}</span>
+          <span style="background:${inc.injuries>0?SEV_COLOR.orange:'#eee'};color:${inc.injuries>0?'#fff':'#999'};padding:3px 10px;border-radius:8px;font-weight:700;font-size:11px">🤕 ${inc.injuries}</span>
+        </div>
+        <div style="margin-top:6px;color:#555;font-size:11px;border-top:1px solid #eee;padding-top:6px;line-height:1.5">
+          ${inc.cause.slice(0,120)}${inc.cause.length>120?'…':''}
+        </div>
+      </div>
+    `, { maxWidth:290, className:'custom-popup' });
+
+    markersLayer.addLayer(m);
+  });
+
+  mapObj.addLayer(markersLayer);
+  const deathCount = FILT.filter(d => d.deaths > 0).length;
+  document.getElementById('map-count').textContent = `يعرض ${deathCount.toLocaleString('ar')} حادث وفاة من أصل ${FILT.length.toLocaleString('ar')}`;
+}
+
+function mapFit() {
+  const pts = FILT.filter(d=>d.lat&&d.lng).map(d=>[d.lat,d.lng]);
+  if (pts.length) mapObj.fitBounds(L.latLngBounds(pts).pad(0.1));
+}
+
+function toggleHeatMode() {
+  heatMode = !heatMode;
+  const btn = document.getElementById('heatmode-btn');
+  btn.style.borderColor = heatMode ? 'var(--red)' : '';
+  btn.style.color       = heatMode ? 'var(--red)' : '';
+  updateMapMarkers();
+}
+
+// ═══════════════════════════════════════════════
+// Table
+// ═══════════════════════════════════════════════
+function renderTable() {
+  const search = (document.getElementById('tbl-search')?.value || '').toLowerCase();
+  let rows = FILT;
+  if (search) rows = rows.filter(d =>
+    (d.road_name||'').toLowerCase().includes(search) ||
+    (d.cause||'').toLowerCase().includes(search) ||
+    (d.authority||'').toLowerCase().includes(search) ||
+    (d.vehicle_type||'').toLowerCase().includes(search) ||
+    (d.date||'').includes(search) ||
+    (d.contract||'').includes(search)
+  );
+
+  document.getElementById('tbl-count').textContent = rows.length + ' سجل';
+
+  document.getElementById('tbl-body').innerHTML = rows.slice(0, 200).map((d, i) => {
+    const isDay = isDayTime(d.hour, d.day_night);
+    const dnBadge = d.hour >= 0
+      ? `<span class="day-night ${isDay?'dn-day':'dn-night'}">${isDay?'☀️':'🌙'} ${isDay?'نهار':'ليل'}</span>`
+      : '<span class="day-night" style="color:var(--muted)">—</span>';
+    const yearColor = d.year===2023?'var(--purple)':d.year===2024?'var(--orange)':'var(--accent)';
+    return `
+      <tr onclick="showDetail(${i})">
+        <td style="color:var(--muted)">${i+1}</td>
+        <td><span class="bpill" style="background:${yearColor}22;color:${yearColor}">${d.year}${d.is_aggregate?' 📊':''}</span></td>
+        <td>${d.is_aggregate ? '<span style="color:var(--muted);font-size:10px">إجمالي سنوي</span>' : d.date}</td>
+        <td title="${d.road_name}">${d.road_name.slice(0,18)}</td>
+        <td><span class="bpill" style="background:rgba(88,166,255,.15);color:var(--accent)">${d.contract}</span></td>
+        <td style="direction:ltr;text-align:right;color:var(--muted)">${d.km_mark||'—'}</td>
+        <td title="${d.vehicle_type||''}">${displayVehicle(d.vehicle_type, flt.vehicle)}</td>
+        <td>${d.is_aggregate ? `<span style="color:var(--muted);font-size:10px">☀️${d.day_incidents||0} 🌙${d.night_incidents||0}</span>` : dnBadge}</td>
+        <td>${d.month_name||'—'}</td>
+        <td style="color:var(--muted)">${d.hour>=0?d.hour+':00':'—'}</td>
+        <td>${d.weather||'—'}</td>
+        <td>${d.deaths>0?`<span class="bpill bp-red">${d.deaths}</span>`:'<span class="bp-muted">0</span>'}</td>
+        <td>${d.injuries>0?`<span class="bpill bp-ora">${d.injuries}</span>`:'<span class="bp-muted">0</span>'}</td>
+        <td title="${d.cause||d.description||''}">${d.cause_category ? `<span style="background:rgba(188,140,255,.15);color:var(--purple);padding:1px 7px;border-radius:10px;font-size:10px;white-space:nowrap">${d.cause_category}</span>` : '—'}</td>
+        <td title="${d.authority||''}">${(d.authority||'—').slice(0,20)}</td>
+      </tr>`;
+  }).join('') || '<tr><td colspan="14" style="text-align:center;padding:20px;color:var(--muted)">لا توجد بيانات</td></tr>';
+}
+
+function showDetail(idx) {
+  const d = FILT[idx];
+  if (!d) return;
+  const isDay = isDayTime(d.hour, d.day_night);
+  document.getElementById('modal-content').innerHTML = `
+    <div class="mrow"><div class="mrow-lbl">📅 التاريخ</div><div class="mrow-val">${d.date} ${d.time||''}</div></div>
+    <div class="mrow"><div class="mrow-lbl">🛣️ الطريق</div><div class="mrow-val">${d.road_name}</div></div>
+    <div class="mrow"><div class="mrow-lbl">📋 رقم العقد</div><div class="mrow-val">${d.contract}</div></div>
+    <div class="mrow"><div class="mrow-lbl">📍 العلامة</div><div class="mrow-val">${d.km_mark}</div></div>
+    <div class="mrow"><div class="mrow-lbl">🧭 الاتجاه</div><div class="mrow-val">${d.direction}</div></div>
+    <div class="mrow"><div class="mrow-lbl">🚗 المركبات</div><div class="mrow-val">
+      ${splitVehicles(d.vehicle_type||'').map(v=>`<span style="display:inline-block;background:rgba(88,166,255,.15);color:var(--accent);padding:1px 7px;border-radius:10px;margin:1px;font-size:11px">${v}</span>`).join('') || d.vehicle_type || '—'}
+    </div></div>
+    <div class="mrow"><div class="mrow-lbl">🔢 اللوحة</div><div class="mrow-val" dir="ltr">${d.plate||'—'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">⛅ الطقس</div><div class="mrow-val">${d.weather||'—'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">${isDay?'☀️':'🌙'} ليل/نهار</div><div class="mrow-val">${isDay?'نهار':'ليل'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">📅 الشهر</div><div class="mrow-val">${d.month_name||'—'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">⏰ الساعة</div><div class="mrow-val">${d.hour>=0?d.hour+':00':'—'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">💀 الوفيات</div><div class="mrow-val" style="color:${d.deaths>0?'var(--red)':'inherit'}">${d.deaths}</div></div>
+    <div class="mrow"><div class="mrow-lbl">🤕 الإصابات</div><div class="mrow-val" style="color:${d.injuries>0?'var(--orange)':'inherit'}">${d.injuries}</div></div>
+    <div class="mrow"><div class="mrow-lbl">🔧 التلفيات</div><div class="mrow-val">${d.damage||'لا يوجد'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">📂 فئة السبب</div><div class="mrow-val"><span style="background:rgba(188,140,255,.15);color:var(--purple);padding:2px 9px;border-radius:10px;font-size:12px">${d.cause_category||'—'}</span></div></div>
+    <div class="mrow" style="align-items:flex-start"><div class="mrow-lbl">⚠️ السبب</div><div class="mrow-val" style="white-space:normal">${d.cause||d.description||'—'}</div></div>
+    <div class="mrow"><div class="mrow-lbl">🏛️ الجهة</div><div class="mrow-val">${d.authority||'—'}</div></div>
+  `;
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('detail-modal').classList.remove('open');
+}
+
+function logout() {
+  sessionStorage.removeItem('auth');
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// UI Helpers
+// ═══════════════════════════════════════════════
+function switchPTab(name) {
+  document.getElementById('filter-pane').style.display = name === 'filter' ? 'block' : 'none';
+  document.getElementById('road-pane').style.display = name === 'roads' ? 'block' : 'none';
+  document.getElementById('ptab-filter').classList.toggle('active', name === 'filter');
+  document.getElementById('ptab-roads').classList.toggle('active', name === 'roads');
+  if (name === 'roads') renderRoadTable();
+}
+
+function toggleDrawer() {
+  drawerOpen = !drawerOpen;
+  const d = document.getElementById('data-drawer');
+  d.className = drawerOpen ? 'open' : 'closed';
+  document.getElementById('drawer-icon').textContent = drawerOpen ? '▼ إغلاق' : '▲ فتح';
+  if (drawerOpen) renderTable();
+}
+
+function filterHighlight(type) {}
+
+function toggleKpiActive(id, active) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('kpi-active', active);
+}
+
+// peakMonth/Hour يُحفظان هنا للنقر
+let _peakMonth = null, _peakHour = -1;
+
+function kpiClick(type) {
+  switch(type) {
+    case 'reset':
+      clearCF();
+      resetFilters();
+      break;
+    case 'deaths':
+      cf.deathsOnly   = !cf.deathsOnly;
+      cf.injuriesOnly = false;
+      applyFilters();
+      break;
+    case 'injuries':
+      cf.injuriesOnly = !cf.injuriesOnly;
+      cf.deathsOnly   = false;
+      applyFilters();
+      break;
+    case 'day':
+      if (flt.daynight.length===1 && flt.daynight[0]==='day') {
+        flt.daynight = [];
+        document.querySelectorAll('#daynight-chips .chip').forEach(c=>c.classList.remove('on'));
+      } else {
+        flt.daynight = ['day'];
+        document.querySelectorAll('#daynight-chips .chip').forEach(c=>{
+          c.classList.toggle('on', c.dataset.val==='day');
+        });
+      }
+      applyFilters();
+      break;
+    case 'night':
+      if (flt.daynight.length===1 && flt.daynight[0]==='night') {
+        flt.daynight = [];
+        document.querySelectorAll('#daynight-chips .chip').forEach(c=>c.classList.remove('on'));
+      } else {
+        flt.daynight = ['night'];
+        document.querySelectorAll('#daynight-chips .chip').forEach(c=>{
+          c.classList.toggle('on', c.dataset.val==='night');
+        });
+      }
+      applyFilters();
+      break;
+    case 'peak-month':
+      if (_peakMonth) toggleCF('month', _peakMonth);
+      break;
+    case 'peak-hour':
+      if (_peakHour >= 0) toggleCF('hour', cf.hour===_peakHour ? null : _peakHour);
+      break;
+  }
+}
+
+function exportCSV() {
+  const h = ['التاريخ','الطريق','رقم العقد','العلامة','الاتجاه','المركبة','اللوحة','الطقس','ليل/نهار','الشهر','الساعة','وفيات','إصابات','السبب','الجهة'];
+  const rows = FILT.map(d => [
+    d.date, d.road_name, d.contract, d.km_mark, d.direction,
+    d.vehicle_type, d.plate, d.weather,
+    isDayTime(d.hour, d.day_night)?'نهار':'ليل', d.month_name, d.hour>=0?d.hour:'',
+    d.deaths, d.injuries, (d.cause||'').replace(/,/g,'؛'), d.authority
+  ]);
+  const csv = '﻿' + [h,...rows].map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'safety_incidents_2025.csv';
+  a.click();
+  notify('تم تصدير CSV بنجاح!');
+}
+
+function notify(msg, isErr=false) {
+  const n = document.getElementById('notify');
+  n.textContent = msg;
+  n.style.cssText = `display:block;background:${isErr?'var(--red)':'var(--green)'};color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;position:fixed;bottom:16px;left:16px;z-index:999`;
+  setTimeout(()=>n.style.display='none', 3000);
+}
+
+// Close modal on backdrop click
+document.getElementById('detail-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('detail-modal')) closeModal();
+});
+
+init();
+</script>
+</body>
+</html>
