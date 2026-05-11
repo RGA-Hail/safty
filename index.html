@@ -247,8 +247,13 @@ select:focus,input:focus{border-color:var(--accent)}
 
   /* Login */
   #login-screen > div{width:92vw!important;padding:20px 14px!important}
-  #login-logo-box{padding:8px!important;border-radius:8px!important;margin-bottom:12px!important}
-  #login-logo-img{height:auto!important;width:100%!important;max-height:none!important}
+  #login-logo-box{
+    padding:12px 0!important;
+    border-radius:0!important;
+    margin:0 calc(-1 * clamp(16px,5vw,48px)) 14px!important;
+    width:calc(100% + 2 * clamp(16px,5vw,48px))!important;
+  }
+  #login-logo-img{height:auto!important;width:96%!important;max-height:none!important;margin:0 auto!important;display:block!important}
   #pin-input{font-size:20px}
 }
 
