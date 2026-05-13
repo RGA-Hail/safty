@@ -182,30 +182,32 @@ input[type=file]{display:none}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const VALID = [
-  '6c80cf1e44d265f12435bf5b72b846543dcc8e524319a16037fb37190fa17b65',
-  '10768c26fcd6821ec7ccac19dbb327d64ae07e9e53579db4c27b55b246eccfc7'
-];
+const SUPA_URL = 'https://aettyehwguheswrrpryi.supabase.co';
+const SUPA_KEY = 'sb_publishable_cBL6vnU58S7_fGnt3bmtEQ_Blmv_dpA';
+const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
 async function checkPin() {
   const val = document.getElementById('pin-input').value.trim();
   if (!val) return;
   const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(val));
   const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  const extra = JSON.parse(localStorage.getItem('extra_pins') || '[]').map(p=>p.hash);
-  if ([...VALID, ...extra].includes(hash)) {
+  const { data } = await supa.from('users').select('role').eq('pin_hash', hash).maybeSingle();
+  if (data) {
     sessionStorage.setItem('auth_hash', hash);
-    sessionStorage.setItem('auth','1');
-    document.getElementById('login-screen').style.display='none';
+    sessionStorage.setItem('auth_role', data.role);
+    sessionStorage.setItem('auth', '1');
+    document.getElementById('login-screen').style.display = 'none';
   } else {
-    document.getElementById('login-err').style.display='block';
-    document.getElementById('pin-input').style.borderColor='#f85149';
-    document.getElementById('pin-input').value='';
+    document.getElementById('login-err').style.display = 'block';
+    document.getElementById('pin-input').style.borderColor = '#f85149';
+    document.getElementById('pin-input').value = '';
     document.getElementById('pin-input').focus();
   }
 }
-if (sessionStorage.getItem('auth')==='1') {
-  document.getElementById('login-screen').style.display='none';
+if (sessionStorage.getItem('auth') === '1') {
+  document.getElementById('login-screen').style.display = 'none';
 }
 document.getElementById('pin-input').focus();
 </script>
@@ -434,6 +436,10 @@ document.getElementById('pin-input').focus();
         <hr style="border-color:var(--border);margin:16px 0">
 
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600">إضافة رقم سري جديد</div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">الاسم / الوصف</label>
+          <input type="text" id="new-pin-name" placeholder="مثال: مهندس السلامة" maxlength="50" autocomplete="off">
+        </div>
         <div style="display:flex;gap:8px;align-items:flex-end">
           <div style="flex:1">
             <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">الرقم السري</label>
@@ -858,97 +864,68 @@ function closeDlg() { document.getElementById('confirm-dialog').classList.remove
 function logout() { sessionStorage.removeItem('auth'); location.reload(); }
 
 // ═══════════════════════════════
-// PIN Management
+// PIN Management — Supabase
 // ═══════════════════════════════
-// الأرقام الأصلية المدمجة (لا تُحذف)
-const BUILTIN_PINS = [
-  '6c80cf1e44d265f12435bf5b72b846543dcc8e524319a16037fb37190fa17b65',
-  '10768c26fcd6821ec7ccac19dbb327d64ae07e9e53579db4c27b55b246eccfc7'
-];
-const BUILTIN_LABELS = ['9604 (افتراضي)', '9797 (افتراضي)'];
-
-async function hashPin(pin) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-function getExtraPins() {
-  try { return JSON.parse(localStorage.getItem('extra_pins') || '[]'); }
-  catch { return []; }
-}
-function saveExtraPins(arr) {
-  localStorage.setItem('extra_pins', JSON.stringify(arr));
-}
-
-function renderPinList() {
+async function renderPinList() {
   const list = document.getElementById('pin-list');
-  const extra = getExtraPins();
-  let html = '';
-
-  // الأرقام الأصلية
-  BUILTIN_LABELS.forEach((lbl, i) => {
-    html += `
-      <div style="display:flex;align-items:center;justify-content:space-between;
-        background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="color:var(--green);font-size:12px">🔒</span>
-          <span style="font-size:12px;font-family:monospace">••••  ${lbl}</span>
-        </div>
-        <span style="font-size:10px;color:var(--muted);background:var(--card);padding:2px 8px;border-radius:8px">مدمج</span>
-      </div>`;
-  });
-
-  // الأرقام المضافة
-  extra.forEach((p, i) => {
-    html += `
-      <div style="display:flex;align-items:center;justify-content:space-between;
-        background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="color:var(--accent);font-size:12px">🔑</span>
-          <span style="font-size:12px;font-family:monospace">••••  ${p.label}</span>
-        </div>
-        <button onclick="removePin(${i})" class="btn btn-danger"
-          style="padding:3px 10px;font-size:11px">🗑️ حذف</button>
-      </div>`;
-  });
-
-  if (!extra.length && !html.includes('مضاف')) {
-    html += `<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">لا توجد أرقام مضافة</div>`;
+  list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted)">جاري التحميل...</div>';
+  const { data: users, error } = await supa.from('users').select('id, name, role').order('id');
+  if (error || !users) {
+    list.innerHTML = '<div style="color:var(--red);text-align:center;padding:8px">❌ فشل تحميل المستخدمين</div>';
+    return;
   }
-
-  list.innerHTML = html;
+  let html = '';
+  users.forEach(u => {
+    const isAdmin = u.role === 'admin';
+    html += `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px">${isAdmin ? '🔒' : '🔑'}</span>
+          <span style="font-size:12px;font-family:monospace">••••  ${u.name}</span>
+          ${isAdmin ? '<span style="font-size:10px;color:var(--green);background:rgba(63,185,80,.1);padding:2px 8px;border-radius:8px">مدير</span>' : ''}
+        </div>
+        ${isAdmin
+          ? '<span style="font-size:10px;color:var(--muted);background:var(--card);padding:2px 8px;border-radius:8px">محمي</span>'
+          : `<button onclick="removePin(${u.id})" class="btn btn-danger" style="padding:3px 10px;font-size:11px">🗑️ حذف</button>`}
+      </div>`;
+  });
+  list.innerHTML = html || '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">لا يوجد مستخدمون</div>';
 }
 
 async function addPin() {
-  const pin   = document.getElementById('new-pin').value.trim();
-  const conf  = document.getElementById('new-pin-confirm').value.trim();
+  const pin  = document.getElementById('new-pin').value.trim();
+  const conf = document.getElementById('new-pin-confirm').value.trim();
+  const name = document.getElementById('new-pin-name').value.trim() || 'مستخدم جديد';
 
-  if (!pin) { showPinAlert('أدخل الرقم السري', 'warn'); return; }
-  if (pin.length < 4) { showPinAlert('الرقم السري يجب أن يكون 4 أحرف على الأقل', 'warn'); return; }
-  if (pin !== conf) { showPinAlert('الرقمان غير متطابقين', 'error'); return; }
+  if (!pin)            { showPinAlert('أدخل الرقم السري', 'warn');                    return; }
+  if (pin.length < 4)  { showPinAlert('الرقم يجب أن يكون 4 أحرف على الأقل', 'warn'); return; }
+  if (pin !== conf)    { showPinAlert('الرقمان غير متطابقين', 'error');               return; }
 
-  const hash = await hashPin(pin);
+  const hash      = await sha256(pin);
+  const adminHash = sessionStorage.getItem('auth_hash');
+  const { data, error } = await supa.rpc('add_user', {
+    admin_hash: adminHash, new_name: name, new_pin_hash: hash, new_role: 'user'
+  });
+  if (error || !data) { showPinAlert('فشل الإضافة — الرقم موجود مسبقاً أو لا توجد صلاحية', 'error'); return; }
 
-  // تحقق من التكرار
-  const extra = getExtraPins();
-  const allHashes = [...BUILTIN_PINS, ...extra.map(p=>p.hash)];
-  if (allHashes.includes(hash)) { showPinAlert('هذا الرقم السري موجود مسبقاً', 'warn'); return; }
-
-  extra.push({ hash, label: `رقم ${extra.length + 3} (مضاف)` });
-  saveExtraPins(extra);
-  renderPinList();
-
-  document.getElementById('new-pin').value = '';
+  document.getElementById('new-pin').value      = '';
   document.getElementById('new-pin-confirm').value = '';
-  showPinAlert('تم إضافة الرقم السري بنجاح', 'success');
+  document.getElementById('new-pin-name').value = '';
+  await renderPinList();
+  showPinAlert('تم إضافة المستخدم بنجاح', 'success');
 }
 
-function removePin(idx) {
-  const extra = getExtraPins();
-  extra.splice(idx, 1);
-  saveExtraPins(extra);
-  renderPinList();
-  showPinAlert('تم حذف الرقم السري', 'success');
+async function removePin(id) {
+  const adminHash = sessionStorage.getItem('auth_hash');
+  const { data } = await supa.rpc('remove_user', { admin_hash: adminHash, target_id: id });
+  if (data) { await renderPinList(); showPinAlert('تم حذف المستخدم', 'success'); }
+  else      { showPinAlert('فشل الحذف', 'error'); }
 }
 
 function showPinAlert(msg, type) {
@@ -958,14 +935,12 @@ function showPinAlert(msg, type) {
   setTimeout(()=>el.classList.remove('show'), 3000);
 }
 
-const ADMIN_PIN_HASH = '6c80cf1e44d265f12435bf5b72b846543dcc8e524319a16037fb37190fa17b65';
-
 async function verifyGate() {
   const val = document.getElementById('gate-pin').value.trim();
   if (!val) return;
-  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(val));
-  const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  if (hash === ADMIN_PIN_HASH) {
+  const hash = await sha256(val);
+  const { data } = await supa.from('users').select('role').eq('pin_hash', hash).eq('role', 'admin').maybeSingle();
+  if (data) {
     document.getElementById('pin-auth-gate').style.display    = 'none';
     document.getElementById('pin-mgmt-content').style.display = 'block';
     renderPinList();
